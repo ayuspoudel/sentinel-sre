@@ -9,11 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ayuspoudel/sentinel-sre/internal/metrics"
 	"github.com/ayuspoudel/sentinel-sre/internal/server"
 )
 
 func main() {
 	srv := server.New(":8000")
+	metrics.Register()
+	metrics.SLOBurnRate.Set(0.5)
+	metrics.ErrorBudgetRemaining.Set(0.92)
 
 	/*
 		@ayuspoudel

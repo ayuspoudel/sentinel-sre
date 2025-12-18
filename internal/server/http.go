@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
@@ -37,6 +39,7 @@ func New(addr string) *Server {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 	return &Server{
 		httpServer: &http.Server{
 			Addr:         addr,
