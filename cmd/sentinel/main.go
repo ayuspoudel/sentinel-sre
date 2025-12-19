@@ -9,16 +9,37 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ayuspoudel/sentinel-sre/internal/controller"
 	"github.com/ayuspoudel/sentinel-sre/internal/metrics"
+	"github.com/ayuspoudel/sentinel-sre/internal/prometheus"
 	"github.com/ayuspoudel/sentinel-sre/internal/server"
 )
 
 func main() {
 	srv := server.New(":8000")
 	metrics.Register()
-	metrics.SLOBurnRate.Set(0.5)
-	metrics.ErrorBudgetRemaining.Set(0.92)
+	/*
+		Initializing prom client using our New() function in prometheus/client
+	*/
+	prom := prometheus.New("http://localhost:9090")
+	/*
+		initializing decision engine (controller) which is responsible for evalating
+		system health and deciding whether blocking deployments should be allowed
+		or blocked. The error rate 0.01 represents, policy not logic, can differ across
+		envs.
+	*/
+	ctrl := controller.New(prom, 0.01)
 
+	/*
+		Context controlling the controller lifecycle.
+		This context is used to ensure the controller stops evaluating
+		when the application is shutting down, preventing background
+		goroutines from leaking or running after shutdown begins.
+	*/
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ctrl.Start(ctx)
+	srv.HandleFunc("/status", ctrl.StatusHandler)
 	/*
 		@ayuspoudel
 		Go routines are extermemly helpful in cases where we call functions like
@@ -55,7 +76,7 @@ func main() {
 		- release resources cleanly
 		If the timeout expires, shutdown is forced.
 	*/
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
