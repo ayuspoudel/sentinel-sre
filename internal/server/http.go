@@ -10,6 +10,7 @@ import (
 )
 
 type Server struct {
+	mux        *http.ServeMux
 	httpServer *http.Server
 }
 
@@ -41,6 +42,7 @@ func New(addr string) *Server {
 	})
 	mux.Handle("/metrics", promhttp.Handler())
 	return &Server{
+		mux: mux,
 		httpServer: &http.Server{
 			Addr:         addr,
 			Handler:      mux,
@@ -65,4 +67,17 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	log.Println("shutting down server")
 	return s.httpServer.Shutdown(ctx)
+}
+
+/*
+	Since we want other packages in this application to be able to register path
+	we need the below functions. This gives us a controlled way to add routes.
+*/
+
+func (s *Server) Handle(path string, handler http.Handler) {
+	s.mux.Handle(path, handler)
+}
+
+func (s *Server) HandleFunc(path string, handler func(http.ResponseWriter, *http.Request)) {
+	s.mux.HandleFunc(path, handler)
 }
