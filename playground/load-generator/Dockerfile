@@ -14,4 +14,4 @@ WORKDIR /app
 
 COPY --from=builder /app/load-generator .
 
-CMD ["./load-generator"]
+CMD ["sh", "-c", "sleep 5 && ./load-generator"]
