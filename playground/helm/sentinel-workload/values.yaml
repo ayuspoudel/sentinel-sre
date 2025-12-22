@@ -1,0 +1,28 @@
+image:
+  repository: sentinel/workload
+  tag: latest
+  pullPolicy: IfNotPresent
+
+clusterName: ""
+
+apps:
+  - name: stable-a
+    replicas: 3
+    errorRate: 0.0
+
+  - name: stable-b
+    replicas: 2
+    errorRate: 0.0
+
+  - name: flaky-a
+    replicas: 3
+    errorRate: 0.15
+
+  - name: canary-a
+    replicas: 1
+    errorRate: 0.30
+
+service:
+  port: 8080
+
+resources: {}
