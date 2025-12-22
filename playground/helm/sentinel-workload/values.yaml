@@ -1,26 +1,40 @@
-image:
-  repository: sentinel/workload
-  tag: latest
-  pullPolicy: IfNotPresent
+clusterName: sreCluster
 
 apps:
-  - name: stable-a
+  stable:
+    enabled: true
+    name: stable
+    image:
+      repository: sentinel/workload-stable
+      tag: "1.0.0"
     replicas: 3
-    errorRate: 0.0
+    env:
+      ERROR_RATE: "0.0"
 
-  - name: stable-b
+  flaky:
+    enabled: true
+    name: flaky
+    image:
+      repository: sentinel/workload-flaky
+      tag: "1.0.0"
     replicas: 2
-    errorRate: 0.0
+    env:
+      ERROR_RATE: "0.01"
+      SPIKE_PROBABILITY: "0.05"
+      SPIKE_DURATION_SEC: "10"
+      SPIKE_ERROR_RATE: "0.30"
+      MAX_LATENCY_MS: "200"
 
-  - name: flaky-a
-    replicas: 3
-    errorRate: 0.15
-
-  - name: canary-a
+  canary:
+    enabled: true
+    name: canary
+    image:
+      repository: sentinel/workload-canary
+      tag: "1.0.0"
     replicas: 1
-    errorRate: 0.30
+    env:
+      ERROR_RATE: "0.05"
+      LATENCY_MS: "400"
 
 service:
   port: 8080
-
-resources: {}
