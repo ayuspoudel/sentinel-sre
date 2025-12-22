@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-var clusters = []string{"paymentsCluster", "streamingCluster", "sreCluster"}
+var allClusters = []string{"paymentsCluster", "streamingCluster", "sreCluster"}
+var singleCluster = []string{"sreCluster"}
 
 var kubeMu sync.Mutex
 
@@ -68,7 +69,7 @@ func waitFor(ctx context.Context, fn func() bool) {
 	}
 }
 
-func startClustersSequential(ctx context.Context) error {
+func startClustersSequential(ctx context.Context, clusters []string) error {
 	for _, c := range clusters {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -88,7 +89,8 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 	run(ctx, "bash", "-c",
 		"kubectl --context "+kubeCtx+" create namespace argocd --dry-run=client -o yaml | kubectl --context "+kubeCtx+" apply -f -")
 
-	kubectl(ctx, kubeCtx, "apply", "-f", "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml", "-n", "argocd")
+	kubectl(ctx, kubeCtx, "apply", "-n", "argocd",
+		"-f", "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml")
 
 	waitFor(ctx, func() bool {
 		return kubectl(ctx, kubeCtx, "-n", "argocd", "get", "deployment", "argocd-server") == nil
@@ -112,9 +114,12 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 	)
 
 	if password != "" {
-		decoded := output("bash", "-c", "echo "+password+" | base64 --decode")
-		log.Println(decoded)
+		log.Println(output("bash", "-c", "echo "+password+" | base64 --decode"))
 	}
+
+	waitFor(ctx, func() bool {
+		return kubectl(ctx, kubeCtx, "kubectl", "apply", "-n", "argocd", "-f", "../argocd/root.yaml") == nil
+	})
 }
 
 func portForward(ctx context.Context, kubeCtx string) {
@@ -130,7 +135,7 @@ func portForward(ctx context.Context, kubeCtx string) {
 	_ = cmd.Run()
 }
 
-func cleanup() {
+func cleanup(clusters []string) {
 	for _, c := range clusters {
 		_ = exec.Command("minikube", "delete", "-p", c).Run()
 	}
@@ -140,9 +145,21 @@ func main() {
 	log.SetFlags(0)
 	checkBinary("minikube")
 	checkBinary("kubectl")
+
+	useSingle := false
+	if len(os.Args) > 1 && os.Args[1] == "--single" {
+		useSingle = true
+	}
+
+	activeClusters := allClusters
+	if useSingle {
+		activeClusters = singleCluster
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	defer cleanup()
+	defer cleanup(activeClusters)
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -151,7 +168,7 @@ func main() {
 		cancel()
 	}()
 
-	if err := startClustersSequential(ctx); err != nil {
+	if err := startClustersSequential(ctx, activeClusters); err != nil {
 		return
 	}
 
@@ -164,6 +181,7 @@ func main() {
 	if ctx.Err() != nil {
 		return
 	}
+
 	go portForward(ctx, "sreCluster")
 	<-ctx.Done()
 }
