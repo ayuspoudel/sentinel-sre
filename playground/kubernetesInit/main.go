@@ -118,7 +118,7 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 	}
 
 	waitFor(ctx, func() bool {
-		return kubectl(ctx, kubeCtx, "kubectl", "apply", "-n", "argocd", "-f", "../argocd/root.yaml") == nil
+		return kubectl(ctx, kubeCtx, "apply", "-n", "argocd", "-f", "../argocd/root.yaml") == nil
 	})
 }
 
