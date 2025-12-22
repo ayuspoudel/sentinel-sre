@@ -27,7 +27,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/work", func(w http.ResponseWriter, _ *http.Request) {
-		if rand.Float64() < 0.3 {
+		if rand.Float64() < 0.1 {
 			httpRequestsTotal.WithLabelValues("500").Inc()
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error"))
