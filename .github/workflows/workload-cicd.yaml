@@ -5,9 +5,9 @@ on:
   push:
     branches: [ develop ]
     paths:
-      - "workload-canary/**"
-      - "workload-stable/**"
-      - "workload-flaky/**"
+      - "playground/workload-canary/**"
+      - "playground/workload-stable/**"
+      - "playground/workload-flaky/**"
   workflow_dispatch:
     inputs:
       workload:
@@ -21,7 +21,7 @@ jobs:
 
     env:
       REGISTRY: docker.io
-      VALUES_FILE: helm/sentinel-workload/values.yaml
+      VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
     steps:
       - name: Checkout repository
@@ -75,7 +75,7 @@ jobs:
             APP=${{ steps.workload.outputs.name }}
             VERSION=${{ steps.bump.outputs.new }}
             IMAGE="${{ secrets.DOCKERHUB_USER }}/workload-${APP}:${VERSION}"
-            docker build -t "$IMAGE" ./workload-${APP}
+            docker build -t "$IMAGE" ./playground//workload-${APP}
             docker push "$IMAGE"
 
       - name: Update Helm values.yaml
