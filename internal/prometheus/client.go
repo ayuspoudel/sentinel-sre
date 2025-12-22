@@ -39,7 +39,7 @@ type queryResponse struct {
 		Result []struct {
 			Value []interface{} `json:"value"`
 		} `json:"result"`
-	} `json:"data`
+	} `json:"data"`
 }
 
 /*
