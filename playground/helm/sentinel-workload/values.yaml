@@ -3,8 +3,6 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-clusterName: ""
-
 apps:
   - name: stable-a
     replicas: 3

@@ -1,3 +1,4 @@
+{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
 {{- range .Values.apps }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -9,7 +10,5 @@ spec:
       app: {{ .name }}
   endpoints:
     - port: http
-      path: /metrics
-      interval: 15s
----
+{{- end }}
 {{- end }}

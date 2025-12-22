@@ -5,19 +5,14 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
     repoURL: https://github.com/ayuspoudel/sentinel-sre
-    targetRevision: HEAD
+    targetRevision: develop
     path: playground/argocd
-
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
