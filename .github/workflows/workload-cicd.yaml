@@ -67,14 +67,14 @@ jobs:
       - name: Docker login
         uses: docker/login-action@v3
         with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            username: ${{ secrets.DOCKERHUB_USER }}
             password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build & push image
         run: |
             APP=${{ steps.workload.outputs.name }}
             VERSION=${{ steps.bump.outputs.new }}
-            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/workload-${APP}:${VERSION}"
+            IMAGE="${{ secrets.DOCKERHUB_USER }}/workload-${APP}:${VERSION}"
             docker build -t "$IMAGE" ./workload-${APP}
             docker push "$IMAGE"
 
