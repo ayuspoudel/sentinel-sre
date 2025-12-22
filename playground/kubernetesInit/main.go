@@ -141,6 +141,38 @@ func cleanup(clusters []string) {
 	}
 }
 
+func installPrometheusCRDs(ctx context.Context, kubeCtx string) error {
+	crdURL := "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/"
+
+	crds := []string{
+		"alertmanagers.yaml",
+		"prometheuses.yaml",
+		"prometheusrules.yaml",
+		"servicemonitors.yaml",
+		"podmonitors.yaml",
+		"probes.yaml",
+		"thanosrulers.yaml",
+	}
+
+	for _, crd := range crds {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		err := kubectl(
+			ctx,
+			kubeCtx,
+			"apply",
+			"-f",
+			crdURL+crd,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
 	log.SetFlags(0)
 	checkBinary("minikube")
@@ -170,6 +202,12 @@ func main() {
 
 	if err := startClustersSequential(ctx, activeClusters); err != nil {
 		return
+	}
+
+	for _, c := range activeClusters {
+		if err := installPrometheusCRDs(ctx, c); err != nil {
+			log.Fatalf("failed installing prometheus CRDs on %s: %v", c, err)
+		}
 	}
 
 	if ctx.Err() != nil {
