@@ -142,35 +142,19 @@ func cleanup(clusters []string) {
 }
 
 func installPrometheusCRDs(ctx context.Context, kubeCtx string) error {
-	crdURL := "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/"
-
-	crds := []string{
-		"alertmanagers.yaml",
-		"prometheuses.yaml",
-		"prometheusrules.yaml",
-		"servicemonitors.yaml",
-		"podmonitors.yaml",
-		"probes.yaml",
-		"thanosrulers.yaml",
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
-	for _, crd := range crds {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
+	crdURL := "https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.76.2/stripped-down-crds.yaml"
 
-		err := kubectl(
-			ctx,
-			kubeCtx,
-			"apply",
-			"-f",
-			crdURL+crd,
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return kubectl(
+		ctx,
+		kubeCtx,
+		"apply",
+		"-f",
+		crdURL,
+	)
 }
 
 func main() {
