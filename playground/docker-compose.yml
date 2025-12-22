@@ -1,6 +1,6 @@
 services:
   workload:
-    image: sentinel-workload
+    build: ./workload
     ports:
       - "8080:8080"
     healthcheck:
@@ -10,14 +10,15 @@ services:
       retries: 10
 
   loadgen:
-    image: sentinel-loadgen
+    build: ./load-generator
+    network_mode: host
     depends_on:
       workload:
         condition: service_healthy
     environment:
-      TARGET_URL: http://workload:8080/work
-      CONCURRENCY: 10
-      SLEEP_MS: 100
+      TARGET_URL: http://localhost:8080/work
+      CONCURRENCY: 30
+      SLEEP_MS: 20
 
   prometheus:
     image: prom/prometheus:latest
