@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/ayuspoudel/sentinel-sre
+    repoURL: https://github.com/ayuspoudel/sentinel-sre.git
     targetRevision: develop
     path: playground/helm/sentinel-workload
     helm:
@@ -18,7 +18,7 @@ spec:
           value: paymentsCluster
 
   destination:
-    server: https://kubernetes.default.svc
+    name: paymentsCluster
     namespace: sentinel-workload
 
   syncPolicy:
