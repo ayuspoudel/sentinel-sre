@@ -12,6 +12,7 @@ import (
 type Decision struct {
 	BlockDeploy bool
 	Reason      string
+	ErrorRate   float64
 }
 
 type Controller struct {
@@ -29,6 +30,7 @@ func New(prom *prometheus.PromClient, maxErrorRate float64) *Controller {
 		latest: Decision{
 			BlockDeploy: false,
 			Reason:      "starting up, no data yet",
+			ErrorRate:   -1,
 		},
 	}
 }
@@ -62,24 +64,26 @@ func (c *Controller) Start(ctx context.Context) {
 */
 
 func (c *Controller) evaluateOnce(ctx context.Context) {
-	total, err := c.prom.Query(ctx, `sum(rate(http_requests_total[5m]))`)
+	total, err := c.prom.Query(ctx, `sum(rate(http_requests_total[1m]))`)
 	if err != nil {
+		log.Printf("total query failed: %v", err)
 		return
 	}
-	errors, err := c.prom.Query(ctx, `sum(rate(http_requests_total{status~=5..}[5m]))`)
+	errors, err := c.prom.Query(ctx, `sum(rate(http_requests_total{status=~"5.."}[1m]))`)
 	if err != nil {
+		log.Printf("total 5xx query failed: %v", err)
 		return
 	}
 	if total == 0 {
-		c.setDecision(Decision{BlockDeploy: false, Reason: "no traffic"})
+		c.setDecision(Decision{BlockDeploy: false, Reason: "no traffic", ErrorRate: 0})
 		return
 	}
 	errorRate := errors / total
 
 	if errorRate > c.maxErrorRate {
-		c.setDecision(Decision{BlockDeploy: true, Reason: "high error rate"})
+		c.setDecision(Decision{BlockDeploy: true, Reason: "high error rate", ErrorRate: errorRate})
 	} else {
-		c.setDecision(Decision{BlockDeploy: false, Reason: "error rate within limits"})
+		c.setDecision(Decision{BlockDeploy: false, Reason: "error rate within limits", ErrorRate: errorRate})
 	}
 }
 
