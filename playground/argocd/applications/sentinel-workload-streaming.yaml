@@ -13,12 +13,10 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-      parameters:
-        - name: clusterName
-          value: streamingCluster
+
 
   destination:
-    name: streamingCluster
+    server: https://kubernetes.default.svc
     namespace: sentinel-workload
 
   syncPolicy:
