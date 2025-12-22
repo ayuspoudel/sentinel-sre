@@ -5,7 +5,6 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
     repoURL: https://github.com/ayuspoudel/sentinel-sre
     targetRevision: develop
@@ -13,12 +12,9 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-
-
   destination:
     server: https://kubernetes.default.svc
-    namespace: sentinel-workload
-
+    namespace: sentinel-workload-streaming
   syncPolicy:
     automated:
       prune: true
