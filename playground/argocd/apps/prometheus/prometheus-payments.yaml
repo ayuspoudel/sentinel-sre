@@ -3,6 +3,8 @@ kind: Application
 metadata:
   name: prometheus-payments
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
@@ -11,6 +13,8 @@ spec:
     targetRevision: 58.6.0
     helm:
       values: |
+        crds:
+          enabled: false
         grafana:
           enabled: false
         alertmanager:
