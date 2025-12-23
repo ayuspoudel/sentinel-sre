@@ -17,25 +17,12 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
 
     steps:
-      - name: Checkout (detect)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Debug – git context
-        run: |
-          echo "::group::Git context"
-          git branch
-          git log -1 --oneline
-          echo "::endgroup::"
-
       - id: set-matrix
-        name: Detect changed workloads
         run: |
-          echo "::group::Changed files"
-          git diff --name-only HEAD~1
-          echo "::endgroup::"
-
           APPS=()
 
           git diff --name-only HEAD~1 | grep -q workload-canary && APPS+=("canary")
@@ -48,14 +35,7 @@ jobs:
             MATRIX=$(printf '%s\n' "${APPS[@]}" | jq -R -s -c 'split("\n")[:-1]')
           fi
 
-          echo "Detected matrix: $MATRIX"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
-      - name: Debug – matrix output
-        run: |
-          echo "::group::Matrix output"
-          echo "${{ steps.set-matrix.outputs.matrix }}"
-          echo "::endgroup::"
 
   release:
     needs: detect
@@ -66,52 +46,28 @@ jobs:
       matrix:
         app: ${{ fromJson(needs.detect.outputs.matrix) }}
 
+    outputs:
+      changes: ${{ steps.emit.outputs.change }}
+
     env:
       VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
     steps:
-      - name: Checkout (release)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITOPS_TOKEN }}
           fetch-depth: 0
-
-      - name: Debug – workload context
-        run: |
-          echo "::group::Release context"
-          echo "Workload: ${{ matrix.app }}"
-          echo "Values file: $VALUES_FILE"
-          ls -la playground/workload-${{ matrix.app }}
-          echo "::endgroup::"
 
       - name: Read current version
         id: version
         run: |
           CURRENT=$(yq e ".apps.${{ matrix.app }}.image.tag" $VALUES_FILE)
-
-          if [ "$CURRENT" = "null" ] || [ -z "$CURRENT" ]; then
-            echo "ERROR: Could not read current version for ${{ matrix.app }}"
-            exit 1
-          fi
-
-          echo "Current version: $CURRENT"
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
 
       - name: Bump version
         id: bump
         run: |
           IFS='.' read -r M m p <<< "${{ steps.version.outputs.current }}"
-          NEW="$M.$m.$((p+1))"
-
-          echo "Bumped version: $NEW"
-          echo "new=$NEW" >> $GITHUB_OUTPUT
-
-      - name: Debug – version info
-        run: |
-          echo "::group::Version info"
-          echo "Current: ${{ steps.version.outputs.current }}"
-          echo "New:     ${{ steps.bump.outputs.new }}"
-          echo "::endgroup::"
+          echo "new=$M.$m.$((p+1))" >> $GITHUB_OUTPUT
 
       - name: Docker login
         uses: docker/login-action@v3
@@ -119,45 +75,61 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push image
+      - name: Build & push
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USER }}/workload-${{ matrix.app }}:${{ steps.bump.outputs.new }}"
-
-          echo "::group::Docker build"
-          echo "Image: $IMAGE"
           docker build -t "$IMAGE" ./playground/workload-${{ matrix.app }}
-          echo "::endgroup::"
-
-          echo "::group::Docker push"
           docker push "$IMAGE"
-          echo "::endgroup::"
 
-      - name: Update values.yaml
+      - name: Emit structured change
+        id: emit
         run: |
-          echo "::group::Update values.yaml (before)"
-          yq e ".apps.${{ matrix.app }}.image.tag" $VALUES_FILE
+          echo "::group::Emit change"
+          CHANGE=$(jq -n \
+            --arg app "${{ matrix.app }}" \
+            --arg version "${{ steps.bump.outputs.new }}" \
+            '{app: $app, version: $version}')
+          echo "$CHANGE"
+          echo "change=$CHANGE" >> $GITHUB_OUTPUT
           echo "::endgroup::"
 
-          yq -i ".apps.${{ matrix.app }}.image.tag = \"${{ steps.bump.outputs.new }}\"" $VALUES_FILE
+  gitops:
+    needs: release
+    runs-on: ubuntu-latest
+    if: needs.release.outputs.changes != ''
 
-          echo "::group::Update values.yaml (after)"
-          yq e ".apps.${{ matrix.app }}.image.tag" $VALUES_FILE
-          echo "::endgroup::"
+    env:
+      VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
-      - name: Commit GitOps change (only if diff)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITOPS_TOKEN }}
+          fetch-depth: 0
+
+      - name: Apply GitOps changes
         run: |
-          echo "::group::Git diff"
-          git diff
+          echo "::group::Applying GitOps changes"
+
+          CHANGES='${{ needs.release.outputs.changes }}'
+
+          echo "$CHANGES" | jq -c '.' | while read -r change; do
+            APP=$(echo "$change" | jq -r '.app')
+            VERSION=$(echo "$change" | jq -r '.version')
+
+            echo "Updating $APP -> $VERSION"
+            yq -i ".apps.${APP}.image.tag = \"${VERSION}\"" $VALUES_FILE
+          done
+
           echo "::endgroup::"
 
-          if git diff --quiet; then
-            echo "No changes detected – skipping commit"
-            exit 0
-          fi
+      - name: Commit & push
+        run: |
+          git diff --quiet && exit 0
 
           git config user.name "sentinel-ci"
           git config user.email "sentinel-ci@users.noreply.github.com"
 
           git add $VALUES_FILE
-          git commit -m "release(${{ matrix.app }}): ${{ steps.bump.outputs.new }}"
+          git commit -m "gitops: update workload images"
           git push
