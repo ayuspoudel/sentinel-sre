@@ -1,5 +1,4 @@
 clusterName: sreCluster
-
 apps:
   stable:
     enabled: true
@@ -10,7 +9,6 @@ apps:
     replicas: 3
     env:
       ERROR_RATE: "0.0"
-
   flaky:
     enabled: true
     name: flaky
@@ -24,17 +22,15 @@ apps:
       SPIKE_DURATION_SEC: "10"
       SPIKE_ERROR_RATE: "0.30"
       MAX_LATENCY_MS: "200"
-
   canary:
     enabled: true
     name: canary
     image:
       repository: sentinel/workload-canary
-      tag: "1.0.0"
+      tag: "1.0.1"
     replicas: 1
     env:
       ERROR_RATE: "0.05"
       LATENCY_MS: "400"
-
 service:
   port: 8080
