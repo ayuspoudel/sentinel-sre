@@ -133,15 +133,16 @@ jobs:
 
       - name: Apply GitOps changes
         run: |
-          echo "Applying image version updates"
-
-          for f in changes/**/**/*.json; do
+            echo "Applying image version updates"
+            
+            find changes -name '*.json' | while read -r f; do
             APP=$(jq -r '.app' "$f")
             VERSION=$(jq -r '.version' "$f")
-
+            
             echo "Updating $APP -> $VERSION"
             yq -i ".apps.${APP}.image.tag = \"${VERSION}\"" $VALUES_FILE
-          done
+            done
+
 
       - name: Commit & push
         run: |
