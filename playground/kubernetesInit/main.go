@@ -92,10 +92,23 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 	kubectl(ctx, kubeCtx, "apply", "-n", "argocd",
 		"-f", "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml")
 
+	// Wait for argocd-server deployment to exist
 	waitFor(ctx, func() bool {
 		return kubectl(ctx, kubeCtx, "-n", "argocd", "get", "deployment", "argocd-server") == nil
 	})
 
+	// Wait until argocd-server is available
+	waitFor(ctx, func() bool {
+		return kubectl(ctx, kubeCtx, "-n", "argocd", "wait",
+			"--for=condition=available",
+			"deployment/argocd-server",
+			"--timeout=1s") == nil
+	})
+	_ = patchArgoCDConfig(ctx, kubeCtx)
+	_ = patchArgoCDServer(ctx, kubeCtx)
+	_ = restartArgoCD(ctx, kubeCtx)
+
+	// Wait again after restart
 	waitFor(ctx, func() bool {
 		return kubectl(ctx, kubeCtx, "-n", "argocd", "wait",
 			"--for=condition=available",
@@ -103,6 +116,7 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 			"--timeout=1s") == nil
 	})
 
+	// Fetch admin password
 	waitFor(ctx, func() bool {
 		return kubectl(ctx, kubeCtx, "-n", "argocd", "get", "secret", "argocd-initial-admin-secret") == nil
 	})
@@ -117,6 +131,7 @@ func installArgoCD(ctx context.Context, kubeCtx string) {
 		log.Println(output("bash", "-c", "echo "+password+" | base64 --decode"))
 	}
 
+	// Apply the root app
 	waitFor(ctx, func() bool {
 		return kubectl(ctx, kubeCtx, "apply", "-n", "argocd", "-f", "argocd/root.yaml") == nil
 	})
@@ -128,7 +143,7 @@ func portForward(ctx context.Context, kubeCtx string) {
 		"kubectl", "--context", kubeCtx,
 		"-n", "argocd",
 		"port-forward", "svc/argocd-server",
-		"8088:443",
+		"8088:80",
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -154,6 +169,43 @@ func installPrometheusCRDs(ctx context.Context, kubeCtx string) error {
 		"apply",
 		"-f",
 		crdURL,
+	)
+}
+
+func patchArgoCDConfig(ctx context.Context, kubeCtx string) error {
+	return kubectl(ctx, kubeCtx,
+		"patch", "configmap", "argocd-cm",
+		"-n", "argocd",
+		"--type", "merge",
+		"-p", `{
+			"data": {
+				"server.insecure": "true",
+				"server.basehref": "/",
+				"server.rootpath": "/"
+			}
+		}`,
+	)
+}
+
+func patchArgoCDServer(ctx context.Context, kubeCtx string) error {
+	return kubectl(ctx, kubeCtx,
+		"patch", "deployment", "argocd-server",
+		"-n", "argocd",
+		"--type", "json",
+		"-p", `[
+			{
+				"op": "add",
+				"path": "/spec/template/spec/containers/0/args/-",
+				"value": "--insecure"
+			}
+		]`,
+	)
+}
+
+func restartArgoCD(ctx context.Context, kubeCtx string) error {
+	return kubectl(ctx, kubeCtx,
+		"rollout", "restart", "deployment/argocd-server",
+		"-n", "argocd",
 	)
 }
 
