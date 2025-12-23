@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/ayuspoudel/sentinel-sre
     targetRevision: develop
-    path: playground/helm/sentinel-workload
+    path: playground/helm/sentinel-workload 
     helm:
       valueFiles: 
         - values.yaml
