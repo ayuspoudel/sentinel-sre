@@ -17,17 +17,19 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (detect)
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - id: set-matrix
+      - name: Detect changed workloads
+        id: set-matrix
         run: |
           APPS=()
 
-          git diff --name-only HEAD~1 | grep -q workload-canary && APPS+=("canary")
-          git diff --name-only HEAD~1 | grep -q workload-stable && APPS+=("stable")
-          git diff --name-only HEAD~1 | grep -q workload-flaky && APPS+=("flaky")
+          git diff --name-only HEAD~1 | grep -q playground/workload-canary && APPS+=("canary")
+          git diff --name-only HEAD~1 | grep -q playground/workload-stable && APPS+=("stable")
+          git diff --name-only HEAD~1 | grep -q playground/workload-flaky && APPS+=("flaky")
 
           if [ ${#APPS[@]} -eq 0 ]; then
             MATRIX="[]"
@@ -35,7 +37,9 @@ jobs:
             MATRIX=$(printf '%s\n' "${APPS[@]}" | jq -R -s -c 'split("\n")[:-1]')
           fi
 
+          echo "Detected matrix: $MATRIX"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
 
   release:
     needs: detect
@@ -50,7 +54,8 @@ jobs:
       VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (release)
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -58,13 +63,23 @@ jobs:
         id: version
         run: |
           CURRENT=$(yq e ".apps.${{ matrix.app }}.image.tag" $VALUES_FILE)
+
+          if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
+            echo "ERROR: Missing version for ${{ matrix.app }}"
+            exit 1
+          fi
+
+          echo "Current version: $CURRENT"
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
 
-      - name: Bump version
+      - name: Bump patch version
         id: bump
         run: |
           IFS='.' read -r M m p <<< "${{ steps.version.outputs.current }}"
-          echo "new=$M.$m.$((p+1))" >> $GITHUB_OUTPUT
+          NEW="$M.$m.$((p+1))"
+
+          echo "New version: $NEW"
+          echo "new=$NEW" >> $GITHUB_OUTPUT
 
       - name: Docker login
         uses: docker/login-action@v3
@@ -72,10 +87,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push
+      - name: Build & push image
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USER }}/workload-${{ matrix.app }}:${{ steps.bump.outputs.new }}"
+
+          echo "Building $IMAGE"
           docker build -t "$IMAGE" ./playground/workload-${{ matrix.app }}
+
+          echo "Pushing $IMAGE"
           docker push "$IMAGE"
 
       - name: Write change artifact
@@ -90,7 +109,7 @@ jobs:
       - name: Upload change artifact
         uses: actions/upload-artifact@v4
         with:
-          name: workload-changes
+          name: workload-change-${{ matrix.app }}
           path: changes/
 
   gitops:
@@ -101,7 +120,8 @@ jobs:
       VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (gitops)
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITOPS_TOKEN }}
           fetch-depth: 0
@@ -109,12 +129,13 @@ jobs:
       - name: Download change artifacts
         uses: actions/download-artifact@v4
         with:
-          name: workload-changes
           path: changes
 
       - name: Apply GitOps changes
         run: |
-          for f in changes/*.json; do
+          echo "Applying image version updates"
+
+          for f in changes/**/**/*.json; do
             APP=$(jq -r '.app' "$f")
             VERSION=$(jq -r '.version' "$f")
 
@@ -124,7 +145,10 @@ jobs:
 
       - name: Commit & push
         run: |
-          git diff --quiet && exit 0
+          if git diff --quiet; then
+            echo "No GitOps changes detected"
+            exit 0
+          fi
 
           git config user.name "sentinel-ci"
           git config user.email "sentinel-ci@users.noreply.github.com"
