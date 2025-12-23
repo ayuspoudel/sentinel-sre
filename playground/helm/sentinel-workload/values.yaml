@@ -5,7 +5,7 @@ apps:
     name: stable
     image:
       repository: sentinel/workload-stable
-      tag: "1.0.1"
+      tag: "1.0.2"
     replicas: 3
     env:
       ERROR_RATE: "0.0"
@@ -14,7 +14,7 @@ apps:
     name: flaky
     image:
       repository: sentinel/workload-flaky
-      tag: "1.0.0"
+      tag: "1.0.1"
     replicas: 2
     env:
       ERROR_RATE: "0.01"
@@ -27,7 +27,7 @@ apps:
     name: canary
     image:
       repository: sentinel/workload-canary
-      tag: "1.0.2"
+      tag: "1.0.3"
     replicas: 1
     env:
       ERROR_RATE: "0.05"
