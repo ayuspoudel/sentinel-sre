@@ -10,7 +10,7 @@ spec:
     targetRevision: develop
     path: playground/helm/sentinel-workload
     helm:
-      valueFiles:
+      valueFiles: 
         - values.yaml
   destination:
     server: https://kubernetes.default.svc

@@ -4,7 +4,7 @@ apps:
     enabled: true
     name: stable
     image:
-      repository: sentinel/workload-stable
+      repository: ayuspoudel/workload-stable
       tag: "1.0.2"
     replicas: 3
     env:
@@ -13,7 +13,7 @@ apps:
     enabled: true
     name: flaky
     image:
-      repository: sentinel/workload-flaky
+      repository: ayuspoudel/workload-flaky
       tag: "1.0.1"
     replicas: 2
     env:
@@ -26,7 +26,7 @@ apps:
     enabled: true
     name: canary
     image:
-      repository: sentinel/workload-canary
+      repository: ayuspoudel/workload-canary
       tag: "1.0.3"
     replicas: 1
     env:
