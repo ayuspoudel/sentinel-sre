@@ -46,9 +46,6 @@ jobs:
       matrix:
         app: ${{ fromJson(needs.detect.outputs.matrix) }}
 
-    outputs:
-      changes: ${{ steps.emit.outputs.change }}
-
     env:
       VALUES_FILE: playground/helm/sentinel-workload/values.yaml
 
@@ -81,22 +78,24 @@ jobs:
           docker build -t "$IMAGE" ./playground/workload-${{ matrix.app }}
           docker push "$IMAGE"
 
-      - name: Emit structured change
-        id: emit
+      - name: Write change artifact
         run: |
-          echo "::group::Emit change"
-          CHANGE=$(jq -n \
+          mkdir -p changes
+          jq -n \
             --arg app "${{ matrix.app }}" \
             --arg version "${{ steps.bump.outputs.new }}" \
-            '{app: $app, version: $version}')
-          echo "$CHANGE"
-          echo "change=$CHANGE" >> $GITHUB_OUTPUT
-          echo "::endgroup::"
+            '{app: $app, version: $version}' \
+            > changes/${{ matrix.app }}.json
+
+      - name: Upload change artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workload-changes
+          path: changes/
 
   gitops:
     needs: release
     runs-on: ubuntu-latest
-    if: needs.release.outputs.changes != ''
 
     env:
       VALUES_FILE: playground/helm/sentinel-workload/values.yaml
@@ -107,21 +106,21 @@ jobs:
           token: ${{ secrets.GITOPS_TOKEN }}
           fetch-depth: 0
 
+      - name: Download change artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: workload-changes
+          path: changes
+
       - name: Apply GitOps changes
         run: |
-          echo "::group::Applying GitOps changes"
-
-          CHANGES='${{ needs.release.outputs.changes }}'
-
-          echo "$CHANGES" | jq -c '.' | while read -r change; do
-            APP=$(echo "$change" | jq -r '.app')
-            VERSION=$(echo "$change" | jq -r '.version')
+          for f in changes/*.json; do
+            APP=$(jq -r '.app' "$f")
+            VERSION=$(jq -r '.version' "$f")
 
             echo "Updating $APP -> $VERSION"
             yq -i ".apps.${APP}.image.tag = \"${VERSION}\"" $VALUES_FILE
           done
-
-          echo "::endgroup::"
 
       - name: Commit & push
         run: |
