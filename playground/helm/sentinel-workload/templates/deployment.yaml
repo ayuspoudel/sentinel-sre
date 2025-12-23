@@ -20,11 +20,24 @@ spec:
         - name: {{ $app.name }}
           image: "{{ $app.image.repository }}:{{ $app.image.tag }}"
           imagePullPolicy: Always
+
           env:
+            # Required identity
+            - name: APP_NAME
+              value: "{{ $app.name }}"
+
+            - name: DEPLOYMENT_NAME
+              value: "{{ $app.name }}"
+
+            - name: CLUSTER_NAME
+              value: "{{ $.Values.clusterName }}"
+
+            # Optional per-app tuning
             {{- range $key, $val := $app.env }}
             - name: {{ $key }}
               value: "{{ $val }}"
             {{- end }}
+
           ports:
             - containerPort: {{ $.Values.service.port }}
 ---
