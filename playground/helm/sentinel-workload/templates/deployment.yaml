@@ -1,27 +1,32 @@
-{{- range .Values.apps }}
+{{- range $appName, $app := .Values.apps }}
+{{- if $app.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .name }}
+  name: {{ $app.name }}
   labels:
-    app: {{ .name }}
+    app: {{ $app.name }}
 spec:
-  replicas: {{ .replicas }}
+  replicas: {{ $app.replicas }}
   selector:
     matchLabels:
-      app: {{ .name }}
+      app: {{ $app.name }}
   template:
     metadata:
       labels:
-        app: {{ .name }}
+        app: {{ $app.name }}
     spec:
       containers:
-        - name: {{ .name }}
-          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
-          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        - name: {{ $app.name }}
+          image: "{{ $app.image.repository }}:{{ $app.image.tag }}"
+          imagePullPolicy: Always
           env:
-            - name: ERROR_RATE
-              value: "{{ .errorRate }}"
+            {{- range $key, $val := $app.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
           ports:
             - containerPort: {{ $.Values.service.port }}
+---
+{{- end }}
 {{- end }}
