@@ -1,11 +1,12 @@
 {{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
-{{- range $appName, $app := .Values.apps }}
+{{- with $.Values.serviceMonitor }}
+{{- range $appName, $app := $.Values.apps }}
 {{- if $app.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ $app.name }}
-  namespace: {{ $.Values.serviceMonitor.namespace }}
+  namespace: {{ .namespace | default $.Release.Namespace }}
   labels:
     release: prometheus
     app: {{ $app.name }}
@@ -21,8 +22,9 @@ spec:
       cluster: {{ $.Values.clusterName }}
   endpoints:
     - port: http
-      path: {{ $.Values.serviceMonitor.path }}
+      path: {{ .path | default "/metrics" }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
