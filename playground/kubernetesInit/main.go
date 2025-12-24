@@ -61,9 +61,7 @@ func kubectlOut(ctx context.Context, kubeCtx string, args ...string) string {
 func waitFor(ctx context.Context, interval, timeout time.Duration, fn func() bool) bool {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-
 	timer := time.After(timeout)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -78,38 +76,40 @@ func waitFor(ctx context.Context, interval, timeout time.Duration, fn func() boo
 	}
 }
 
+func repoRoot() string {
+	_, srcFile, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatal("cannot resolve source path")
+	}
+	return filepath.Dir(filepath.Dir(srcFile))
+}
+
 func loadEnv() {
 	var envPath string
 	_, srcFile, _, ok := runtime.Caller(0)
 	if ok {
-		srcDir := filepath.Dir(srcFile)
-		candidate := filepath.Join(srcDir, ".env")
+		candidate := filepath.Join(filepath.Dir(srcFile), ".env")
 		if _, err := os.Stat(candidate); err == nil {
 			envPath = candidate
 		}
 	}
-
 	if envPath == "" {
 		exe, err := os.Executable()
 		if err == nil {
-			exeDir := filepath.Dir(exe)
-			candidate := filepath.Join(exeDir, ".env")
+			candidate := filepath.Join(filepath.Dir(exe), ".env")
 			if _, err := os.Stat(candidate); err == nil {
 				envPath = candidate
 			}
 		}
 	}
-
 	if envPath == "" {
-		log.Fatal(".env file not found (checked source dir and executable dir)")
+		log.Fatal(".env file not found")
 	}
-
 	f, err := os.Open(envPath)
 	if err != nil {
-		log.Fatalf("failed to open .env at %s", envPath)
+		log.Fatal(err)
 	}
 	defer f.Close()
-
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -121,8 +121,6 @@ func loadEnv() {
 			os.Setenv(kv[0], kv[1])
 		}
 	}
-
-	log.Printf("loaded env from %s\n", envPath)
 }
 
 func startClustersSequential(ctx context.Context, clusters []string) error {
@@ -144,9 +142,6 @@ func portForwardPrometheus(ctx context.Context, kubeCtx string, localPort string
 		if ctx.Err() != nil {
 			return
 		}
-
-		log.Printf("[%s] prometheus port-forward\n", kubeCtx)
-
 		cmd := exec.CommandContext(
 			ctx,
 			"kubectl", "--context", kubeCtx,
@@ -155,11 +150,9 @@ func portForwardPrometheus(ctx context.Context, kubeCtx string, localPort string
 			"svc/prometheus-k8s",
 			localPort+":9090",
 		)
-
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		_ = cmd.Run()
-
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -180,7 +173,6 @@ func patchArgoCD(ctx context.Context, kubeCtx string) {
 		"--type", "merge",
 		"-p", `{"data":{"server.insecure":"true"}}`,
 	)
-
 	if !argocdHasInsecure(ctx, kubeCtx) {
 		kubectl(ctx, kubeCtx,
 			"patch", "deployment", "argocd-server",
@@ -189,7 +181,6 @@ func patchArgoCD(ctx context.Context, kubeCtx string) {
 			"-p", `[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--insecure"}]`,
 		)
 	}
-
 	kubectl(ctx, kubeCtx,
 		"rollout", "restart", "deployment/argocd-server",
 		"-n", "argocd",
@@ -199,15 +190,19 @@ func patchArgoCD(ctx context.Context, kubeCtx string) {
 func installArgoCD(ctx context.Context, kubeCtx string) {
 	run(ctx, "bash", "-c",
 		"kubectl --context "+kubeCtx+" create ns argocd --dry-run=client -o yaml | kubectl --context "+kubeCtx+" apply -f -")
-
 	kubectl(ctx, kubeCtx, "apply", "-n", "argocd",
 		"-f", "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml")
-
 	waitFor(ctx, 2*time.Second, 3*time.Minute, func() bool {
 		return kubectl(ctx, kubeCtx, "-n", "argocd", "get", "deployment", "argocd-server") == nil
 	})
-
 	patchArgoCD(ctx, kubeCtx)
+}
+
+func applyRootApp(ctx context.Context, kubeCtx string) {
+	root := filepath.Join(repoRoot(), "argocd", "root.yaml")
+	if err := kubectl(ctx, kubeCtx, "apply", "-n", "argocd", "-f", root); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func portForwardArgoCD(ctx context.Context, kubeCtx string) {
@@ -215,9 +210,6 @@ func portForwardArgoCD(ctx context.Context, kubeCtx string) {
 		if ctx.Err() != nil {
 			return
 		}
-
-		log.Println("[argocd] port-forward")
-
 		cmd := exec.CommandContext(
 			ctx,
 			"kubectl", "--context", kubeCtx,
@@ -226,11 +218,9 @@ func portForwardArgoCD(ctx context.Context, kubeCtx string) {
 			"svc/argocd-server",
 			"8088:80",
 		)
-
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		_ = cmd.Run()
-
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -240,9 +230,7 @@ func startNgrok(ctx context.Context, port string, name string) {
 	if token == "" {
 		log.Fatal("NGROK_AUTHTOKEN not set")
 	}
-
 	run(ctx, "ngrok", "config", "add-authtoken", token)
-
 	cmd := exec.CommandContext(ctx, "ngrok", "http", port)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -250,8 +238,6 @@ func startNgrok(ctx context.Context, port string, name string) {
 }
 
 func waitForArgoCDApps(ctx context.Context, kubeCtx string) {
-	log.Println("[argocd] waiting for applications to become healthy")
-
 	ok := waitFor(ctx, 5*time.Second, 10*time.Minute, func() bool {
 		out := kubectlOut(ctx, kubeCtx,
 			"-n", "argocd",
@@ -261,7 +247,6 @@ func waitForArgoCDApps(ctx context.Context, kubeCtx string) {
 		if out == "" {
 			return false
 		}
-
 		for _, s := range strings.Fields(out) {
 			if s != "Healthy" {
 				return false
@@ -269,64 +254,46 @@ func waitForArgoCDApps(ctx context.Context, kubeCtx string) {
 		}
 		return true
 	})
-
 	if !ok {
-		log.Fatal("argocd applications did not become healthy")
+		log.Fatal("argocd applications not healthy")
 	}
-
-	log.Println("[argocd] all applications healthy")
 }
 
 func main() {
 	log.SetFlags(0)
-
 	checkBinary("minikube")
 	checkBinary("kubectl")
 	checkBinary("ngrok")
-
 	loadEnv()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sig
 		cancel()
 	}()
-
 	activeClusters := allClusters
 	if len(os.Args) > 1 && os.Args[1] == "--single" {
 		activeClusters = singleCluster
 	}
-
 	if err := startClustersSequential(ctx, activeClusters); err != nil {
 		log.Fatal(err)
 	}
-
 	for _, c := range activeClusters {
 		if err := installPrometheusCRDs(ctx, c); err != nil {
-			log.Fatalf("prometheus CRDs failed on %s", c)
+			log.Fatal(err)
 		}
 	}
-
 	installArgoCD(ctx, "sreCluster")
-
-	// Expose Argo CD only
+	applyRootApp(ctx, "sreCluster")
 	go portForwardArgoCD(ctx, "sreCluster")
 	go startNgrok(ctx, "8088", "argocd")
-
-	// Block until Helm charts (including Prometheus) are deployed
 	waitForArgoCDApps(ctx, "sreCluster")
-
-	// Prometheus exists now → safe to port-forward locally
 	port := 9091
 	for _, c := range activeClusters {
-		p := port
-		go portForwardPrometheus(ctx, c, strconv.Itoa(p))
+		go portForwardPrometheus(ctx, c, strconv.Itoa(port))
 		port++
 	}
-
 	<-ctx.Done()
 }
