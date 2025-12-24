@@ -21,7 +21,7 @@ spec:
           enabled: false
 
         prometheus:
-          service:
+          service: 
             type: ClusterIP
             port: 9090
           prometheusSpec:

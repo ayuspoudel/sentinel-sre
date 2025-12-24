@@ -134,11 +134,11 @@ jobs:
       - name: Apply GitOps changes
         run: |
             echo "Applying image version updates"
-            
+
             find changes -name '*.json' | while read -r f; do
             APP=$(jq -r '.app' "$f")
             VERSION=$(jq -r '.version' "$f")
-            
+
             echo "Updating $APP -> $VERSION"
             yq -i ".apps.${APP}.image.tag = \"${VERSION}\"" $VALUES_FILE
             done
@@ -157,3 +157,55 @@ jobs:
           git add $VALUES_FILE
           git commit -m "gitops: update workload images"
           git push
+
+  cd-argocd:
+    name: CD via Argo CD
+    needs: gitops
+    runs-on: ubuntu-latest
+
+    env:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+    steps:
+      - name: Install argocd CLI
+        run: |
+          set -e
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/argocd
+          argocd version --client
+
+      - name: Login to Argo CD
+        run: |
+          set -e
+          argocd login "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --insecure
+
+      - name: Argo CD status before sync
+        run: |
+          set +e
+          argocd app get sentinel-workload-streaming
+          argocd app get sentinel-workload-payments
+
+      - name: Trigger Argo CD sync
+        run: |
+          set -e
+          argocd app sync sentinel-workload-streaming && argocd app sync sentinel-workload-payments
+
+      - name: Watch Argo CD sync
+        run: |
+          set -e
+          argocd app wait sentinel-workload-streaming --sync --health --watch --timeout 300
+          argocd app wait sentinel-workload-payments --sync --health --watch --timeout 300
+
+      - name: Show deployed image versions
+        run: |
+          set -e
+          argocd app get sentinel-workload-streaming --output json | jq '.status.summary.images'
+          argocd app get sentinel-workload-payments --output json | jq '.status.summary.images'
+
+      - name: Argo CD status after sync
+        run: |
+          set -e
+          argocd app get sentinel-workload-streaming
+          argocd app get sentinel-workload-payments

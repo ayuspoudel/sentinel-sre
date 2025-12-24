@@ -2,6 +2,12 @@ clusterName: sreCluster
 
 global:
   appGroup: payments
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  labels:
+    release: prometheus
+  path: /metrics
 
 apps:
   stable:
