@@ -1,14 +1,24 @@
 {{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
-{{- range .Values.apps }}
+{{- range $appName, $app := .Values.apps }}
+{{- if $app.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .name }}
+  name: {{ $app.name }}
+  labels:
+    app: {{ $app.name }}
+    appGroup: {{ $.Values.global.appGroup }}
+    tier: {{ $app.labels.tier }}
+    cluster: {{ $.Values.clusterName }}
 spec:
   selector:
     matchLabels:
-      app: {{ .name }}
+      app: {{ $app.name }}
+      appGroup: {{ $.Values.global.appGroup }}
+      tier: {{ $app.labels.tier }}
+      cluster: {{ $.Values.clusterName }}
   endpoints:
     - port: http
+{{- end }}
 {{- end }}
 {{- end }}

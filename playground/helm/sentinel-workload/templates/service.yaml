@@ -1,16 +1,24 @@
-{{- range .Values.apps }}
+{{- range $appName, $app := .Values.apps }}
+{{- if $app.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .name }}
+  name: {{ $app.name }}
   labels:
-    app: {{ .name }}
+    app: {{ $app.name }}
+    appGroup: {{ $.Values.global.appGroup }}
+    tier: {{ $app.labels.tier }}
+    cluster: {{ $.Values.clusterName }}
 spec:
   selector:
-    app: {{ .name }}
+    app: {{ $app.name }}
+    appGroup: {{ $.Values.global.appGroup }}
+    tier: {{ $app.labels.tier }}
+    cluster: {{ $.Values.clusterName }}
   ports:
     - name: http
       port: {{ $.Values.service.port }}
-      targetPort: 8080
+      targetPort: {{ $.Values.service.port }}
 ---
+{{- end }}
 {{- end }}

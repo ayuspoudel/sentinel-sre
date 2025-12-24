@@ -6,15 +6,23 @@ metadata:
   name: {{ $app.name }}
   labels:
     app: {{ $app.name }}
+    appGroup: {{ $.Values.global.appGroup }}
+    tier: {{ $app.labels.tier }}
+    cluster: {{ $.Values.clusterName }}
 spec:
   replicas: {{ $app.replicas }}
   selector:
     matchLabels:
       app: {{ $app.name }}
+      appGroup: {{ $.Values.global.appGroup }}
+      tier: {{ $app.labels.tier }}
   template:
     metadata:
       labels:
         app: {{ $app.name }}
+        appGroup: {{ $.Values.global.appGroup }}
+        tier: {{ $app.labels.tier }}
+        cluster: {{ $.Values.clusterName }}
     spec:
       containers:
         - name: {{ $app.name }}
@@ -31,6 +39,12 @@ spec:
 
             - name: CLUSTER_NAME
               value: "{{ $.Values.clusterName }}"
+
+            - name: APP_GROUP
+              value: "{{ $.Values.global.appGroup }}"
+
+            - name: TIER
+              value: "{{ $app.labels.tier }}"
 
             # Optional per-app tuning
             {{- range $key, $val := $app.env }}
