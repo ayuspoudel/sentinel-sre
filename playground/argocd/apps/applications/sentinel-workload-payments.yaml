@@ -11,7 +11,7 @@ spec:
     path: playground/helm/sentinel-workload 
     helm:
       valueFiles: 
-        - values.yaml
+        - values-payments.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: sentinel-workload-payments
