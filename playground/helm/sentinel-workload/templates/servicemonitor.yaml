@@ -5,7 +5,9 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ $app.name }}
+  namespace: {{ $.Values.serviceMonitor.namespace }}
   labels:
+    release: prometheus
     app: {{ $app.name }}
     appGroup: {{ $.Values.global.appGroup }}
     tier: {{ $app.labels.tier }}
@@ -19,6 +21,8 @@ spec:
       cluster: {{ $.Values.clusterName }}
   endpoints:
     - port: http
+      path: {{ $.Values.serviceMonitor.path }}
+---
 {{- end }}
 {{- end }}
 {{- end }}
