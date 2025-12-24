@@ -4,5 +4,4 @@ kind: Kustomization
 resources:
   - ./applications/sentinel-workload-payments.yaml
   - ./applications/sentinel-workload-streaming.yaml
-  - ./prometheus/prometheus-payments.yaml
-  - ./prometheus/prometheus-streaming.yaml
+  - ./prometheus/prometheus.yaml

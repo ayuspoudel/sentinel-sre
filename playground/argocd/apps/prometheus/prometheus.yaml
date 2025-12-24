@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: prometheus-payments
+  name: prometheus
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
@@ -28,7 +28,7 @@ spec:
             serviceMonitorSelectorNilUsesHelmValues: false
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring-payments
+    namespace: monitoring
   syncPolicy:
     automated:
       prune: true
