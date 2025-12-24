@@ -17,9 +17,6 @@ spec:
   selector:
     matchLabels:
       app: {{ $app.name }}
-      appGroup: {{ $.Values.global.appGroup }}
-      tier: {{ $app.labels.tier }}
-      cluster: {{ $.Values.clusterName }}
   endpoints:
     - port: http
       path: {{ .path | default "/metrics" }}

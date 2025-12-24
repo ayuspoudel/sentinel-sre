@@ -16,7 +16,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: sentinel-workload-payments
   syncPolicy:
-    automated:
+    automated: 
       prune: true 
       selfHeal: true
     syncOptions: 
