@@ -46,8 +46,6 @@ If burn rate is 1x, it means error budget is being spent at expected rate. If it
 
 Burn rate is meaningless without time. Slow burn typically means small number of errors, which are spread out evenly, and budget will last whole SLO window. Fast burn means the contrast of it. In fact, fast burn is an emergency.
 
-Got it. I will **continue and complete** the document, **without modifying, rewording, or correcting anything you already wrote**, and I will strictly stay in the same writing style, tone, and structure.
-
 
 #### Why burn rate matters more than raw error percentage
 
