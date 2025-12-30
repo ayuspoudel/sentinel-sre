@@ -1,89 +1,74 @@
 package main
 
-import (
-	"context"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/ayuspoudel/sentinel-sre/internal/controller"
-	"github.com/ayuspoudel/sentinel-sre/internal/metrics"
-	"github.com/ayuspoudel/sentinel-sre/internal/prometheus"
-	"github.com/ayuspoudel/sentinel-sre/internal/server"
-)
-
 func main() {
-	srv := server.New(":8000")
-	metrics.Register()
-	/*
-		Initializing prom client using our New() function in prometheus/client
-	*/
-	prom := prometheus.New("http://localhost:9090")
-	/*
-		initializing decision engine (controller) which is responsible for evalating
-		system health and deciding whether blocking deployments should be allowed
-		or blocked. The error rate 0.01 represents, policy not logic, can differ across
-		envs.
-	*/
-	ctrl := controller.New(prom, 0.01)
+	// // srv := server.New(":8000")
+	// metrics.Register()
+	// /*
+	// 	Initializing prom client using our New() function in prometheus/client
+	// */
+	// prom := prometheus.New("http://localhost:9090")
+	// /*
+	// 	initializing decision engine (controller) which is responsible for evalating
+	// 	system health and deciding whether blocking deployments should be allowed
+	// 	or blocked. The error rate 0.01 represents, policy not logic, can differ across
+	// 	envs.
+	// */
+	// ctrl := controller.New(prom, 0.01)
 
-	/*
-		Context controlling the controller lifecycle.
-		This context is used to ensure the controller stops evaluating
-		when the application is shutting down, preventing background
-		goroutines from leaking or running after shutdown begins.
-	*/
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go ctrl.Start(ctx)
-	srv.HandleFunc("/status", ctrl.StatusHandler)
-	/*
-		@ayuspoudel
-		Go routines are extermemly helpful in cases where we call functions like
-		http.ListenAndServe(), which blocks for entire lifetime of server. Running
-		the server in a go routine would allow us to run http server concurrently
-		and main go routine to continue executing. The program will this listen for
-		all OS signals for termination.
-	*/
-	go func() {
-		err := srv.Start()
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %+v", err)
-		}
-	}()
+	// /*
+	// 	Context controlling the controller lifecycle.
+	// 	This context is used to ensure the controller stops evaluating
+	// 	when the application is shutting down, preventing background
+	// 	goroutines from leaking or running after shutdown begins.
+	// */
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+	// go ctrl.Start(ctx)
+	// srv.HandleFunc("/status", ctrl.StatusHandler)
+	// /*
+	// 	@ayuspoudel
+	// 	Go routines are extermemly helpful in cases where we call functions like
+	// 	http.ListenAndServe(), which blocks for entire lifetime of server. Running
+	// 	the server in a go routine would allow us to run http server concurrently
+	// 	and main go routine to continue executing. The program will this listen for
+	// 	all OS signals for termination.
+	// */
+	// go func() {
+	// 	err := srv.Start()
+	// 	if err != nil && err != http.ErrServerClosed {
+	// 		log.Fatalf("server error: %+v", err)
+	// 	}
+	// }()
 
-	/*
-		@ayuspoudel
-		The main go routine will wait for any signal from the OS to stop the server, i.e
-		handle the process lifecycle. If it recieves any SIGINT or SIGTERM from OS, it will
-		signal.Notify instruct go to forward those signals into 'stop' channel.
-		PS. reciever operation (<-stop) blocks the main go routine until a termination has occured
-	*/
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-	/*
-		@ayuspoudel
-		Once a termination signal is received, we initiate graceful shutdown.A context with
-		timeout is created to enforce an upper bound on how long the server is allowed to shut down.
-		The timeot (10 seconds here) represents the maximum time
-		the server may take to:
-		- stop accepting new connections
-		- finish in-flight HTTP requests
-		- release resources cleanly
-		If the timeout expires, shutdown is forced.
-	*/
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// /*
+	// 	@ayuspoudel
+	// 	The main go routine will wait for any signal from the OS to stop the server, i.e
+	// 	handle the process lifecycle. If it recieves any SIGINT or SIGTERM from OS, it will
+	// 	signal.Notify instruct go to forward those signals into 'stop' channel.
+	// 	PS. reciever operation (<-stop) blocks the main go routine until a termination has occured
+	// */
+	// stop := make(chan os.Signal, 1)
+	// signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	// <-stop
+	// /*
+	// 	@ayuspoudel
+	// 	Once a termination signal is received, we initiate graceful shutdown.A context with
+	// 	timeout is created to enforce an upper bound on how long the server is allowed to shut down.
+	// 	The timeot (10 seconds here) represents the maximum time
+	// 	the server may take to:
+	// 	- stop accepting new connections
+	// 	- finish in-flight HTTP requests
+	// 	- release resources cleanly
+	// 	If the timeout expires, shutdown is forced.
+	// */
+	// ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	// defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("shutdown error: %v", err)
-	}
+	// if err := srv.Shutdown(ctx); err != nil {
+	// 	log.Fatalf("shutdown error: %v", err)
+	// }
 
-	log.Println("server exited cleanly")
+	// log.Println("server exited cleanly")
 
 }
 
