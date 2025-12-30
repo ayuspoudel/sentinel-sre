@@ -8,7 +8,7 @@ type Manifest struct {
 	Target   Target   `yaml:"target" validate:"required"`
 	Signals  Signals  `yaml:"signals" validate:"required"`
 	Policy   Policy   `yaml:"policy" validate:"required"`
-	Canary   *Canary  `yaml:"canary,omitempty"`
+	Canary   *Canary  `yaml:"canary"`
 }
 
 type Metadata struct {
@@ -67,7 +67,7 @@ type Canary struct {
 }
 
 type CanaryScope struct {
-	Label         string `yaml:"label" validate:"required"`
-	CanaryValue   string `yaml:"canaryValue" validate:"required"`
-	BaselineValue string `yaml:"baselineValue" validate:"required"`
+	Label         string `yaml:"label"`
+	CanaryValue   string `yaml:"canaryValue"`
+	BaselineValue string `yaml:"baselineValue"`
 }

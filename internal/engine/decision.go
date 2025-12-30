@@ -9,3 +9,11 @@ type Decision struct {
 	Reason    string
 	Timestamp time.Time
 }
+
+func (d *Decision) Update(allowed bool, phase string, reason string) {
+	d.Allowed = allowed
+	d.Phase = phase
+	d.Reason = reason
+	d.Timestamp = time.Now()
+	return
+}

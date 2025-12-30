@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"log"
 
 	"github.com/ayuspoudel/sentinel-sre/internal/registry"
 )
@@ -17,6 +18,12 @@ func (e *Engine) phaseObservability(ctx context.Context, g registry.Guard) (Deci
 			Reason:    "failed to query prometheus: " + err.Error(),
 		}, false
 	}
+	log.Printf(
+		"guard=%s traffic_rps=%f min_rps=%f",
+		g.Name,
+		value,
+		g.Manifest.Signals.Traffic.MinRPS,
+	)
 	if value < traffic.MinRPS {
 		return Decision{
 			GuardName: g.Name,
@@ -26,5 +33,10 @@ func (e *Engine) phaseObservability(ctx context.Context, g registry.Guard) (Deci
 		}, false
 
 	}
-	return Decision{}, false
+	return Decision{
+		GuardName: g.Name,
+		Allowed:   true,
+		Phase:     "observability",
+		Reason:    "sufficient traffic observed",
+	}, true
 }

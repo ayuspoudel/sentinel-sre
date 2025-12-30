@@ -78,6 +78,7 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 			log.Printf("evaluating guard: %s, %s", g.Name, e.decisions[g.Name].Reason)
 			continue
 		}
+
 		e.decisions[g.Name] = Decision{
 			GuardName: g.Name,
 			Allowed:   true,
