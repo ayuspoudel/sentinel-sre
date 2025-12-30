@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/internal/engine"
+	"github.com/ayuspoudel/sentinel-sre/internal/prometheus"
 	"github.com/ayuspoudel/sentinel-sre/internal/registry"
 	"github.com/ayuspoudel/sentinel-sre/internal/server"
 )
@@ -30,9 +31,9 @@ func main() {
 			// SSHKeyPath: "/etc/sentinel/git/id_rsa", // or TokenEnv: "GIT_TOKEN"
 		},
 	)
-
+	prom := prometheus.New("http://localhost:9090")
 	// Initialize Sentinel engine
-	eng := engine.New(reg, 10*time.Second, 1*time.Minute)
+	eng := engine.New(reg, prom, 10*time.Second, 1*time.Minute)
 
 	// Start engine in background
 	go func() {
