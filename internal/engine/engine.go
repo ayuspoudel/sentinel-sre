@@ -6,11 +6,24 @@ import (
 	"sync"
 	"time"
 
+	prometheus "github.com/ayuspoudel/sentinel-sre/internal/prometheus"
 	"github.com/ayuspoudel/sentinel-sre/internal/registry"
 )
 
+/*
+@ayuspoudel
+Engine is the core of Sentinel.
+It owns:
+- registry (source of guards)
+- prometheus client (metrics source)
+- evaluation loop
+- decisions
+Nothing else in the system is allowed to make deployment decisions.
+*/
 type Engine struct {
-	registry       registry.Registry
+	registry registry.Registry
+	metrics  *prometheus.PromClient
+
 	evalInterval   time.Duration
 	reloadInterval time.Duration
 
@@ -19,9 +32,10 @@ type Engine struct {
 	decisions map[string]Decision
 }
 
-func New(reg registry.Registry, evalInterval, reloadInterval time.Duration) *Engine {
+func New(reg registry.Registry, metrics *prometheus.PromClient, evalInterval, reloadInterval time.Duration) *Engine {
 	return &Engine{
 		registry:       reg,
+		metrics:        metrics,
 		evalInterval:   evalInterval,
 		reloadInterval: reloadInterval,
 		decisions:      make(map[string]Decision),
@@ -57,11 +71,18 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	for _, g := range e.guards {
-		d := Decision{
+		d, stop := e.phaseObservability(ctx, g)
+		if stop {
+			d.Timestamp = time.Now()
+			e.decisions[g.Name] = d
+			log.Printf("evaluating guard: %s, %s", g.Name, e.decisions[g.Name].Reason)
+			continue
+		}
+		e.decisions[g.Name] = Decision{
 			GuardName: g.Name,
 			Allowed:   true,
-			Phase:     "Initial",
-			Reason:    "no decision logic implemented yet",
+			Phase:     "observability",
+			Reason:    "all checks passed",
 			Timestamp: time.Now(),
 		}
 		e.decisions[g.Name] = d
