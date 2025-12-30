@@ -1,0 +1,44 @@
+apiVersion: sentinel.sre/v1
+kind: Guard
+
+metadata:
+  name: checkout-api
+  owner: payments-sre
+  environment: prod
+
+target:
+  cluster: prod-us-east-1
+  namespace: checkout
+  service: checkout-api
+
+signals:
+  traffic:
+    source: prometheus
+    query: sum(rate(http_requests_total{service="checkout"}[1m]))
+    minRPS: 5
+
+  errors:
+    source: prometheus
+    query: sum(rate(http_requests_total{service="checkout",status=~"5.."}[1m]))
+
+  slo:
+    objective: 99.9
+    window: 30d
+
+policy:
+  budget:
+    fastBurn:
+      window: 5m
+      threshold: 14
+    slowBurn:
+      window: 1h
+      threshold: 2
+    minRemaining: 10%
+
+canary:
+  enabled: true
+  duration: 10m
+  scope:
+    label: version
+    canaryValue: canary
+    baselineValue: stable
