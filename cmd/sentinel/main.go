@@ -25,7 +25,7 @@ func main() {
 	// Initialize registry (source of truth for guards)
 	reg := registry.NewGitRegistry(
 		"git@github.com:ayuspoudel/sentinel-manifests.git",
-		"develop",
+		"main",
 		"/tmp/sentinel",
 		registry.GitAuth{
 			// SSHKeyPath: "/etc/sentinel/git/id_rsa", // or TokenEnv: "GIT_TOKEN"
