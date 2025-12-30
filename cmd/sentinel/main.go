@@ -22,10 +22,17 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	// Initialize registry (source of truth for guards)
-	reg := registry.NewFSRegistry("./internal/registry")
+	reg := registry.NewGitRegistry(
+		"git@github.com:ayuspoudel/sentinel-manifests.git",
+		"develop",
+		"/tmp/sentinel",
+		registry.GitAuth{
+			// SSHKeyPath: "/etc/sentinel/git/id_rsa", // or TokenEnv: "GIT_TOKEN"
+		},
+	)
 
 	// Initialize Sentinel engine
-	eng := engine.New(reg, 10*time.Second)
+	eng := engine.New(reg, 10*time.Second, 1*time.Minute)
 
 	// Start engine in background
 	go func() {

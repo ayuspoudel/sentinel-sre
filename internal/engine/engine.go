@@ -14,8 +14,9 @@ type Engine struct {
 	evalInterval   time.Duration
 	reloadInterval time.Duration
 
-	mu     sync.RWMutex
-	guards []registry.Guard
+	mu        sync.RWMutex
+	guards    []registry.Guard
+	decisions map[string]Decision
 }
 
 func New(reg registry.Registry, evalInterval, reloadInterval time.Duration) *Engine {
@@ -23,6 +24,7 @@ func New(reg registry.Registry, evalInterval, reloadInterval time.Duration) *Eng
 		registry:       reg,
 		evalInterval:   evalInterval,
 		reloadInterval: reloadInterval,
+		decisions:      make(map[string]Decision),
 	}
 }
 
@@ -55,7 +57,15 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	for _, g := range e.guards {
-		log.Printf("evaluating guard: %s", g.Name)
+		d := Decision{
+			GuardName: g.Name,
+			Allowed:   true,
+			Phase:     "Initial",
+			Reason:    "no decision logic implemented yet",
+			Timestamp: time.Now(),
+		}
+		e.decisions[g.Name] = d
+		log.Printf("evaluating guard: %s, %s", g.Name, e.decisions[g.Name].Reason)
 	}
 }
 
@@ -80,4 +90,27 @@ func (e *Engine) reload(ctx context.Context) error {
 	e.guards = e.registry.Guards()
 	return nil
 
+}
+
+/*
+	Helpers for decisions
+*/
+
+func (e *Engine) Decisions() []Decision {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	out := make([]Decision, 0, len(e.decisions))
+	for _, d := range e.decisions {
+		out = append(out, d)
+	}
+	return out
+}
+
+func (e *Engine) DecisionFor(guard string) (Decision, bool) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	d, ok := e.decisions[guard]
+	return d, ok
 }
