@@ -68,26 +68,39 @@ func (e *Engine) Start(ctx context.Context) error {
 }
 
 func (e *Engine) evaluateOnce(ctx context.Context) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	for _, g := range e.guards {
-		d, stop := e.phaseObservability(ctx, g)
-		if stop {
-			d.Timestamp = time.Now()
-			e.decisions[g.Name] = d
-			log.Printf("evaluating guard: %s, %s", g.Name, e.decisions[g.Name].Reason)
+
+		// Phase 1: Observability
+		d, ok := e.phaseObservability(ctx, g)
+		d.Timestamp = time.Now()
+		e.decisions[g.Name] = d
+		log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
+
+		if !ok {
 			continue
 		}
 
+		// Phase 2: Error budget
+		d, ok = e.phaseBudget(ctx, g)
+		d.Timestamp = time.Now()
+		e.decisions[g.Name] = d
+		log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
+
+		if !ok {
+			continue
+		}
+
+		// All phases passed
 		e.decisions[g.Name] = Decision{
 			GuardName: g.Name,
 			Allowed:   true,
-			Phase:     "observability",
+			Phase:     "final",
 			Reason:    "all checks passed",
 			Timestamp: time.Now(),
 		}
-		e.decisions[g.Name] = d
-		log.Printf("evaluating guard: %s, %s", g.Name, e.decisions[g.Name].Reason)
 	}
 }
 
