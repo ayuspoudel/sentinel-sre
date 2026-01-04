@@ -43,7 +43,7 @@ func main() {
 	}()
 
 	// HTTP server (API surface will expose engine decisions later)
-	srv := server.New(":8000", eng)
+	srv := server.New(":8000", eng.Actions())
 
 	go func() {
 		if err := srv.Start(); err != nil {
