@@ -6,7 +6,7 @@ type Type string
 
 const (
 	Allow    Type = "allow"
-	Deny     Type = "deny"
+	Block    Type = "block"
 	Rollback Type = "rollback"
 	Promote  Type = "promote"
 )
