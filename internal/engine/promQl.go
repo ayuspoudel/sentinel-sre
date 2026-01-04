@@ -28,3 +28,7 @@ func stripLabelFilters(metric string) string {
 	}
 	return metric
 }
+
+func applyScope(query, label, value string) string {
+	return query[:len(query)-1] + `,` + label + `="` + value + `"}` + query[len(query)-1:]
+}

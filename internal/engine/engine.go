@@ -18,8 +18,8 @@ It owns:
 - registry (source of guards)
 - prometheus client (metrics source)
 - evaluation loop
-- decisions
-Nothing else in the system is allowed to make deployment decisions.
+- actions
+Nothing else in the system is allowed to make deployment actions.
 */
 type Engine struct {
 	registry registry.Registry
@@ -41,6 +41,10 @@ func New(reg registry.Registry, metrics *prometheus.PromClient, evalInterval, re
 		reloadInterval: reloadInterval,
 		actions:        action.NewStore(),
 	}
+}
+
+func (e *Engine) Actions() *action.Store {
+	return e.actions
 }
 
 func (e *Engine) Start(ctx context.Context) error {
