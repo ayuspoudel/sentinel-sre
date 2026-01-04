@@ -8,29 +8,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/internal/engine"
+	"github.com/ayuspoudel/sentinel-sre/internal/action"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
 	mux        *http.ServeMux
 	httpServer *http.Server
-	engine     *engine.Engine
+
+	// store is a read-only reference to Sentinel's action store.
+	// The server NEVER mutates state. It only exposes intent.
+	store *action.Store
 }
 
 /*
 @ayuspoudel
 This will be our http utility function which allows us to initialize a http server.
-It takes in port number and engine reference and returns a Server struct with a
-custom handler initialized with:
+It takes in port number and an action store reference and returns a Server struct
+with a custom handler initialized with:
 - 5s read timeout
 - 5s write timeout
 - 30s idle timeout
 
-The engine reference is required so that this server can expose Sentinel's
-decision state over HTTP in a read-only manner.
+The server does not make decisions.
+It only exposes Sentinel's current intent in a read-only manner.
 */
-func New(addr string, eng *engine.Engine) *Server {
+func New(addr string, store *action.Store) *Server {
 	/*
 		@ayuspoudel
 		It is always safe to register a custom mux (http multiplexer) instead of using
@@ -60,8 +63,8 @@ func New(addr string, eng *engine.Engine) *Server {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	s := &Server{
-		mux:    mux,
-		engine: eng,
+		mux:   mux,
+		store: store,
 		httpServer: &http.Server{
 			Addr:         addr,
 			Handler:      mux,
@@ -73,12 +76,12 @@ func New(addr string, eng *engine.Engine) *Server {
 
 	/*
 		@ayuspoudel
-		Decision API endpoints.
-		These endpoints expose Sentinel's current decisions in a read-only fashion.
+		Action API endpoints.
+		These endpoints expose Sentinel's current intent.
 		No mutation or triggering is allowed via HTTP.
 	*/
-	mux.HandleFunc("/decisions", s.handleDecisions)
-	mux.HandleFunc("/decisions/", s.handleDecisionByGuard)
+	mux.HandleFunc("/actions", s.handleActions)
+	mux.HandleFunc("/actions/", s.handleActionByGuard)
 
 	return s
 }
@@ -101,20 +104,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 /*
 	@ayuspoudel
-	Since we want other packages in this application to be able to register paths,
-	we expose controlled helper functions instead of giving direct access to mux.
-*/
-
-func (s *Server) Handle(path string, handler http.Handler) {
-	s.mux.Handle(path, handler)
-}
-
-func (s *Server) HandleFunc(path string, handler func(http.ResponseWriter, *http.Request)) {
-	s.mux.HandleFunc(path, handler)
-}
-
-/*
-	@ayuspoudel
 	Utility function to write JSON responses.
 	This keeps response formatting consistent across handlers.
 */
@@ -127,46 +116,46 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 
 /*
 	@ayuspoudel
-	GET /decisions
-	Returns the latest decision for all active guards.
+	GET /actions
+	Returns the latest action for all active guards.
 	This endpoint is expected to be consumed by CI/CD systems
 	or humans inspecting Sentinel state.
 */
 
-func (s *Server) handleDecisions(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleActions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	decisions := s.engine.Decisions()
-	writeJSON(w, http.StatusOK, decisions)
+	actions := s.store.List()
+	writeJSON(w, http.StatusOK, actions)
 }
 
 /*
 	@ayuspoudel
-	GET /decisions/{guardName}
-	Returns the latest decision for a single guard.
+	GET /actions/{guardName}
+	Returns the latest action for a single guard.
 	If the guard does not exist, 404 is returned.
 */
 
-func (s *Server) handleDecisionByGuard(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleActionByGuard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	guard := strings.TrimPrefix(r.URL.Path, "/decisions/")
+	guard := strings.TrimPrefix(r.URL.Path, "/actions/")
 	if guard == "" {
 		http.NotFound(w, r)
 		return
 	}
 
-	d, ok := s.engine.DecisionFor(guard)
+	a, ok := s.store.Get(guard)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, d)
+	writeJSON(w, http.StatusOK, a)
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ayuspoudel/sentinel-sre/internal/action"
 	prometheus "github.com/ayuspoudel/sentinel-sre/internal/prometheus"
 	"github.com/ayuspoudel/sentinel-sre/internal/registry"
 )
@@ -27,9 +28,9 @@ type Engine struct {
 	evalInterval   time.Duration
 	reloadInterval time.Duration
 
-	mu        sync.RWMutex
-	guards    []registry.Guard
-	decisions map[string]Decision
+	mu      sync.RWMutex
+	guards  []registry.Guard
+	actions *action.Store
 }
 
 func New(reg registry.Registry, metrics *prometheus.PromClient, evalInterval, reloadInterval time.Duration) *Engine {
@@ -38,7 +39,7 @@ func New(reg registry.Registry, metrics *prometheus.PromClient, evalInterval, re
 		metrics:        metrics,
 		evalInterval:   evalInterval,
 		reloadInterval: reloadInterval,
-		decisions:      make(map[string]Decision),
+		actions:        action.NewStore(),
 	}
 }
 
@@ -68,39 +69,50 @@ func (e *Engine) Start(ctx context.Context) error {
 }
 
 func (e *Engine) evaluateOnce(ctx context.Context) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	guards := e.guards
+	e.mu.RUnlock()
 
-	for _, g := range e.guards {
+	for _, g := range guards {
 
 		// Phase 1: Observability
 		d, ok := e.phaseObservability(ctx, g)
-		d.Timestamp = time.Now()
-		e.decisions[g.Name] = d
-		log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
-
 		if !ok {
+			e.actions.Set(action.Action{
+				GuardName: g.Name,
+				Type:      action.Block,
+				Phase:     d.Phase,
+				Reason:    d.Reason,
+				Timestamp: time.Now(),
+			})
+			log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
 			continue
 		}
 
 		// Phase 2: Error budget
 		d, ok = e.phaseBudget(ctx, g)
-		d.Timestamp = time.Now()
-		e.decisions[g.Name] = d
-		log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
-
 		if !ok {
+			e.actions.Set(action.Action{
+				GuardName: g.Name,
+				Type:      action.Block,
+				Phase:     d.Phase,
+				Reason:    d.Reason,
+				Timestamp: time.Now(),
+			})
+			log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
 			continue
 		}
 
 		// All phases passed
-		e.decisions[g.Name] = Decision{
+		e.actions.Set(action.Action{
 			GuardName: g.Name,
-			Allowed:   true,
-			Phase:     "final",
+			Type:      action.Allow,
+			Phase:     "stable",
 			Reason:    "all checks passed",
 			Timestamp: time.Now(),
-		}
+		})
+
+		log.Printf("evaluating guard: %s, deployment allowed", g.Name)
 	}
 }
 
@@ -128,24 +140,24 @@ func (e *Engine) reload(ctx context.Context) error {
 }
 
 /*
-	Helpers for decisions
+	Helpers for decisions (Deprecated because we are using actions instead of decision)
 */
 
-func (e *Engine) Decisions() []Decision {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+// func (e *Engine) Decisions() []Decision {
+// 	e.mu.RLock()
+// 	defer e.mu.RUnlock()
 
-	out := make([]Decision, 0, len(e.decisions))
-	for _, d := range e.decisions {
-		out = append(out, d)
-	}
-	return out
-}
+// 	out := make([]Decision, 0, len(e.decisions))
+// 	for _, d := range e.decisions {
+// 		out = append(out, d)
+// 	}
+// 	return out
+// }
 
-func (e *Engine) DecisionFor(guard string) (Decision, bool) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+// func (e *Engine) DecisionFor(guard string) (Decision, bool) {
+// 	e.mu.RLock()
+// 	defer e.mu.RUnlock()
 
-	d, ok := e.decisions[guard]
-	return d, ok
-}
+// 	d, ok := e.decisions[guard]
+// 	return d, ok
+// }
