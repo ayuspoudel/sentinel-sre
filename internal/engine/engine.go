@@ -107,12 +107,26 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 			continue
 		}
 
+		// Phase 3: Canary
+		d, ok = e.phaseCanary(ctx, g)
+		if !ok {
+			e.actions.Set(action.Action{
+				GuardName: g.Name,
+				Type:      action.Block,
+				Phase:     d.Phase,
+				Reason:    d.Reason,
+				Timestamp: time.Now(),
+			})
+			log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
+			continue
+		}
+
 		// All phases passed
 		e.actions.Set(action.Action{
 			GuardName: g.Name,
 			Type:      action.Allow,
 			Phase:     "stable",
-			Reason:    "all checks passed",
+			Reason:    "canary verified and promoted",
 			Timestamp: time.Now(),
 		})
 
