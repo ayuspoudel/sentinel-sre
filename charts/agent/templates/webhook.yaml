@@ -1,0 +1,36 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionWebhookConfiguration
+metadata:
+  name: sentinel-agent
+webhooks:
+  - name: agent.sentinel.sre
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: {{ .Values.webhook.failurePolicy }}
+    timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+
+    clientConfig:
+      service:
+        name: sentinel-agent
+        namespace: {{ include "sentinel-agent.namespace" . }}
+        path: /validate
+        port: 443
+      caBundle: {{ required "tls.caBundle is required" .Values.tls.caBundle }}
+
+    rules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments"]
+
+    namespaceSelector:
+      matchExpressions:
+        - key: {{ .Values.selectors.namespaceLabel.key }}
+          operator: In
+          values:
+            - {{ .Values.selectors.namespaceLabel.value | quote }}
+
+    objectSelector:
+      matchExpressions:
+        - key: {{ .Values.selectors.workloadLabel.key }}
+          operator: Exists

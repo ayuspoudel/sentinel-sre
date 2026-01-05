@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-agent
+  namespace: {{ include "sentinel-agent.namespace" . }}
+  labels:
+{{ include "sentinel-agent.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: sentinel-agent
+  template:
+    metadata:
+      labels:
+        app: sentinel-agent
+{{ include "sentinel-agent.labels" . | indent 8 }}
+    spec:
+      serviceAccountName: sentinel-agent
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--listen=:8443"
+          env:
+            - name: SENTINEL_SRE_URL
+              value: {{ required "sentinelSRE.url is required" .Values.sentinelSRE.url | quote }}
+          ports:
+            - name: https
+              containerPort: 8443
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
