@@ -13,7 +13,7 @@ type Action struct {
 }
 
 var (
-	SentinelAddress = "localhost:8000"
+	SentinelAddress = "http://localhost:8000"
 )
 
 func CheckWithSentinel(ctx context.Context, guard string) (bool, string) {
@@ -43,7 +43,7 @@ func CheckWithSentinel(ctx context.Context, guard string) (bool, string) {
 	}
 	switch action.Type {
 	case "allow":
-		return true, ""
+		return true, action.Reason
 	case "deny":
 		return false, action.Reason
 	default:
