@@ -9,7 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/agent/admission"
+	"github.com/ayuspoudel/sentinel-sre/agent/internal/admission"
+	"github.com/ayuspoudel/sentinel-sre/agent/internal/server"
 )
 
 func main() {
@@ -18,9 +19,9 @@ func main() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-
+	admissionHandler := admission.NewHandler()
 	// Admission server
-	srv := admission.NewServer(":8443")
+	srv := server.NewServer(":8443", admissionHandler)
 
 	go func() {
 		log.Println("sentinel-agent admission server starting on :8443")

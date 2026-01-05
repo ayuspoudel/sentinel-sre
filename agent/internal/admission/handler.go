@@ -7,7 +7,13 @@ import (
 	"github.com/ayuspoudel/sentinel-sre/agent/internal/client"
 )
 
-func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
+type Handler struct {
+}
+
+func NewHandler() *Handler {
+	return &Handler{}
+}
+func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
