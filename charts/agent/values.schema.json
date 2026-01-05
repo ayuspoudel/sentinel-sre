@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["sentinelSRE", "tls"],
+  "properties": {
+    "namespace": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "create": { "type": "boolean" }
+      }
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string" }
+      }
+    },
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sentinelSRE": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "required": ["secretName", "caBundle"],
+      "properties": {
+        "secretName": {
+          "type": "string"
+        },
+        "caBundle": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "properties": {
+        "failurePolicy": {
+          "type": "string",
+          "enum": ["Fail", "Ignore"]
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        }
+      }
+    }
+  }
+}
