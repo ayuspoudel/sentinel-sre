@@ -13,13 +13,16 @@ import (
 
 /*
 @ayuspoudel
-Engine is the core of Sentinel.
+Engine is the core of Sentinel SRE.
+
 It owns:
 - registry (source of guards)
 - prometheus client (metrics source)
 - evaluation loop
-- actions
-Nothing else in the system is allowed to make deployment actions.
+- action store (allow / block)
+
+Sentinel SRE is a safety oracle.
+It does NOT perform deployments or rollouts.
 */
 type Engine struct {
 	registry registry.Registry
@@ -33,7 +36,12 @@ type Engine struct {
 	actions *action.Store
 }
 
-func New(reg registry.Registry, metrics *prometheus.PromClient, evalInterval, reloadInterval time.Duration) *Engine {
+func New(
+	reg registry.Registry,
+	metrics *prometheus.PromClient,
+	evalInterval,
+	reloadInterval time.Duration,
+) *Engine {
 	return &Engine{
 		registry:       reg,
 		metrics:        metrics,
@@ -48,23 +56,27 @@ func (e *Engine) Actions() *action.Store {
 }
 
 func (e *Engine) Start(ctx context.Context) error {
-	err := e.registry.Load(ctx)
-	if err != nil {
+	if err := e.registry.Load(ctx); err != nil {
 		return err
 	}
 
 	e.guards = e.registry.Guards()
+
 	evalTicker := time.NewTicker(e.evalInterval)
 	reloadTicker := time.NewTicker(e.reloadInterval)
 	defer evalTicker.Stop()
 	defer reloadTicker.Stop()
+
 	log.Printf("engine started with %d guards", len(e.guards))
+
 	for {
 		select {
 		case <-evalTicker.C:
 			e.evaluateOnce(ctx)
+
 		case <-reloadTicker.C:
 			e.tryReload(ctx)
+
 		case <-ctx.Done():
 			log.Println("engine stopped")
 			return nil
@@ -107,26 +119,12 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 			continue
 		}
 
-		// Phase 3: Canary
-		d, ok = e.phaseCanary(ctx, g)
-		if !ok {
-			e.actions.Set(action.Action{
-				GuardName: g.Name,
-				Type:      action.Block,
-				Phase:     d.Phase,
-				Reason:    d.Reason,
-				Timestamp: time.Now(),
-			})
-			log.Printf("evaluating guard: %s, %s", g.Name, d.Reason)
-			continue
-		}
-
-		// All phases passed
+		// All safety checks passed
 		e.actions.Set(action.Action{
 			GuardName: g.Name,
 			Type:      action.Allow,
 			Phase:     "stable",
-			Reason:    "canary verified and promoted",
+			Reason:    "observability and budget checks passed",
 			Timestamp: time.Now(),
 		})
 
@@ -136,46 +134,22 @@ func (e *Engine) evaluateOnce(ctx context.Context) {
 
 func (e *Engine) tryReload(ctx context.Context) {
 	log.Println("attempting registry reload")
-	err := e.reload(ctx)
-	if err != nil {
+
+	if err := e.reload(ctx); err != nil {
 		log.Printf("registry reload failed: %v (keeping previous state)", err)
 		return
 	}
-	log.Printf("registry reload succeeded, %d guards active", len(e.guards))
 
+	log.Printf("registry reload succeeded, %d guards active", len(e.guards))
 }
 
 func (e *Engine) reload(ctx context.Context) error {
-	err := e.registry.Load(ctx)
-	if err != nil {
+	if err := e.registry.Load(ctx); err != nil {
 		return err
 	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.guards = e.registry.Guards()
 	return nil
-
 }
-
-/*
-	Helpers for decisions (Deprecated because we are using actions instead of decision)
-*/
-
-// func (e *Engine) Decisions() []Decision {
-// 	e.mu.RLock()
-// 	defer e.mu.RUnlock()
-
-// 	out := make([]Decision, 0, len(e.decisions))
-// 	for _, d := range e.decisions {
-// 		out = append(out, d)
-// 	}
-// 	return out
-// }
-
-// func (e *Engine) DecisionFor(guard string) (Decision, bool) {
-// 	e.mu.RLock()
-// 	defer e.mu.RUnlock()
-
-// 	d, ok := e.decisions[guard]
-// 	return d, ok
-// }
