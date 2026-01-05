@@ -1,0 +1,40 @@
+should match the webhook snapshot:
+  1: |
+    apiVersion: admissionregistration.k8s.io/v1
+    kind: ValidatingAdmissionWebhookConfiguration
+    metadata:
+      name: sentinel-agent
+    webhooks:
+      - admissionReviewVersions:
+          - v1
+        clientConfig:
+          caBundle: ZHVtbXk=
+          service:
+            name: sentinel-agent
+            namespace: sentinel
+            path: /validate
+            port: 443
+        failurePolicy: Fail
+        name: agent.sentinel.sre
+        namespaceSelector:
+          matchExpressions:
+            - key: sentinel.guard/enabled
+              operator: In
+              values:
+                - "true"
+        objectSelector:
+          matchExpressions:
+            - key: sentinel.guard/name
+              operator: Exists
+        rules:
+          - apiGroups:
+              - apps
+            apiVersions:
+              - v1
+            operations:
+              - CREATE
+              - UPDATE
+            resources:
+              - deployments
+        sideEffects: None
+        timeoutSeconds: 5
