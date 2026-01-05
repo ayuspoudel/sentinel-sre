@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ayuspoudel/sentinel-sre/agent/client"
+	"github.com/ayuspoudel/sentinel-sre/agent/internal/client"
 )
 
 func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
