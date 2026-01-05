@@ -15,5 +15,4 @@ func (d *Decision) Update(allowed bool, phase string, reason string) {
 	d.Phase = phase
 	d.Reason = reason
 	d.Timestamp = time.Now()
-	return
 }
