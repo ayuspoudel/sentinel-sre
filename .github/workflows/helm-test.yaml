@@ -1,0 +1,133 @@
+name: Helm Chart Tests
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "charts/**"
+
+  pull_request:
+    paths:
+      - "charts/**"
+
+jobs:
+  helm-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Start KinD cluster
+        uses: helm/kind-action@v1
+
+      - name: Helm lint
+        run: helm lint charts/agent
+
+      - name: Helm template
+        run: |
+          helm template sentinel-agent charts/agent \
+            --set sentinelSRE.url=http://example \
+            --set tls.caBundle=dGVzdA== \
+            > rendered.yaml
+
+      - name: Kubernetes server-side validation
+        run: kubectl apply --dry-run=server -f rendered.yaml
+
+      - name: Install helm-diff plugin
+        run: |
+          helm plugin remove diff || true
+          helm plugin install https://github.com/databus23/helm-diff --version v3.9.5
+
+      - name: Helm diff (allow-unreleased)
+        run: |
+          helm diff upgrade sentinel-agent charts/agent \
+            --set sentinelSRE.url=http://example \
+            --set tls.caBundle=dGVzdA== \
+            --allow-unreleased || true
+
+      - name: Chart version gate (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+
+          CHART_PATH="charts/agent"
+          CHART_FILE="$CHART_PATH/Chart.yaml"
+
+          CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
+          STRUCTURAL_CHANGE=false
+
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == "$CHART_PATH/templates/"* ]] || \
+               [[ "$file" == "$CHART_PATH/values.yaml" ]] || \
+               [[ "$file" == "$CHART_FILE" ]]; then
+              STRUCTURAL_CHANGE=true
+            fi
+          done
+
+          if [[ "$STRUCTURAL_CHANGE" == "true" ]]; then
+            OLD_VERSION=$(git show origin/develop:$CHART_FILE | yq '.version')
+            NEW_VERSION=$(yq '.version' "$CHART_FILE")
+
+            if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
+              echo "ERROR: Chart version must be bumped when structure changes"
+              exit 1
+            fi
+          fi
+
+      # Auto-bump version on develop
+      - name: Auto-bump chart version on develop
+        if: github.event_name == 'push' && github.ref_name == 'develop'
+        run: |
+          set -euo pipefail
+
+          CHART_PATH="charts/agent"
+          CHART_FILE="$CHART_PATH/Chart.yaml"
+
+          CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
+          STRUCTURAL_CHANGE=false
+
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == "$CHART_PATH/templates/"* ]] || \
+               [[ "$file" == "$CHART_PATH/values.yaml" ]] || \
+               [[ "$file" == "$CHART_FILE" ]]; then
+              STRUCTURAL_CHANGE=true
+            fi
+          done
+
+          if [[ "$STRUCTURAL_CHANGE" != "true" ]]; then
+            echo "No structural chart changes detected"
+            exit 0
+          fi
+
+          CURRENT_VERSION=$(yq '.version' "$CHART_FILE")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+
+          yq -i ".version = \"$NEW_VERSION\"" "$CHART_FILE"
+
+          git config user.name "chart-bot"
+          git config user.email "chart-bot@users.noreply.github.com"
+          git add "$CHART_FILE"
+          git commit -m "chore(chart): auto-bump sentinel-agent to $NEW_VERSION [skip ci]"
+          git push origin HEAD:develop
