@@ -47,3 +47,16 @@ func writeResponse(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+func extractGuardName(req *AdmissionRequest) (string, error) {
+	if req == nil {
+		return "", nil
+	}
+
+	var obj RawObject
+	if err := json.Unmarshal(req.Object, &obj); err != nil {
+		return "", err
+	}
+
+	return obj.Metadata.Labels["sentinel.guard"], nil
+}
