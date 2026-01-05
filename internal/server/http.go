@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/internal/action"
+	"github.com/ayuspoudel/sentinel-sre/internal/cluster"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -18,7 +19,8 @@ type Server struct {
 
 	// store is a read-only reference to Sentinel's action store.
 	// The server NEVER mutates state. It only exposes intent.
-	store *action.Store
+	store        *action.Store
+	clusterStore *cluster.Store
 }
 
 /*
@@ -83,6 +85,14 @@ func New(addr string, store *action.Store) *Server {
 	mux.HandleFunc("/actions", s.handleActions)
 	mux.HandleFunc("/actions/", s.handleActionByGuard)
 
+	/*
+		@ayuspoudel
+		Cluster registration endpoints.
+	*/
+	s.clusterStore = cluster.NewStore()
+	mux.HandleFunc("/clusters/register", cluster.RegisterHandler(s.clusterStore))
+	mux.HandleFunc("/clusters", cluster.ListHandler(s.clusterStore))
+	mux.HandleFunc("/clusters/", cluster.GetByNameHandler(s.clusterStore))
 	return s
 }
 
