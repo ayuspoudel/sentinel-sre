@@ -1,0 +1,28 @@
+namespace:
+  name: sentinel
+  create: true
+
+image:
+  repository: sentinel-agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+sentinelSRE:
+  url: "" # REQUIRED
+
+tls:
+  secretName: sentinel-agent-tls
+  caBundle: "" # REQUIRED (base64 encoded CA cert)
+
+webhook:
+  failurePolicy: Fail
+  timeoutSeconds: 5
+
+selectors:
+  namespaceLabel:
+    key: sentinel.guard/enabled
+    value: "true"
+  workloadLabel:
+    key: sentinel.guard/name
