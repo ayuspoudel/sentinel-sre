@@ -1,0 +1,48 @@
+suite: Sentinel Agent Webhook Tests
+
+templates:
+  - templates/webhook.yaml
+
+tests:
+  - it: should create validating admission webhook
+    set:
+      sentinelSRE.url: http://sentinel-sre.example
+      tls.caBundle: ZHVtbXk=
+    asserts:
+      - isKind:
+          of: ValidatingAdmissionWebhookConfiguration
+
+  - it: should set failurePolicy to Fail
+    set:
+      sentinelSRE.url: http://sentinel-sre.example
+      tls.caBundle: ZHVtbXk=
+      webhook.failurePolicy: Fail
+    asserts:
+      - equal:
+          path: webhooks[0].failurePolicy
+          value: Fail
+
+  - it: should require namespace opt-in
+    set:
+      sentinelSRE.url: http://sentinel-sre.example
+      tls.caBundle: ZHVtbXk=
+    asserts:
+      - equal:
+          path: webhooks[0].namespaceSelector.matchExpressions[0].key
+          value: sentinel.guard/enabled
+
+  - it: should require workload guard label
+    set:
+      sentinelSRE.url: http://sentinel-sre.example
+      tls.caBundle: ZHVtbXk=
+    asserts:
+      - equal:
+          path: webhooks[0].objectSelector.matchExpressions[0].operator
+          value: Exists
+
+  - it: should match the webhook snapshot
+    set:
+      sentinelSRE.url: http://sentinel-sre.example
+      tls.caBundle: ZHVtbXk=
+    asserts:
+      - matchSnapshot: {}
