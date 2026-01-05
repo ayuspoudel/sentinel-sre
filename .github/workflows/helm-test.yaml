@@ -11,6 +11,10 @@ on:
     paths:
       - "charts/**"
 
+env:
+  CHARTS_DIR: charts
+  HELM_UNITTEST_VERSION: v0.3.6
+
 jobs:
   helm-test:
     runs-on: ubuntu-latest
@@ -41,93 +45,103 @@ jobs:
       - name: Start KinD cluster
         uses: helm/kind-action@v1
 
-      - name: Helm lint
-        run: helm lint charts/agent
-
-      - name: Helm template
+      - name: Discover Helm charts
+        id: charts
         run: |
-          helm template sentinel-agent charts/agent \
-            --set sentinelSRE.url=http://example \
-            --set tls.caBundle=dGVzdA== \
-            > rendered.yaml
+          set -euo pipefail
+          CHARTS=$(find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \;)
+          echo "charts<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHARTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Kubernetes server-side validation
-        run: kubectl apply --dry-run=server -f rendered.yaml
+      - name: Helm lint template and kube validation
+        run: |
+          set -euo pipefail
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            helm lint "$chart"
+            helm template sentinel-test "$chart" \
+              --set sentinelSRE.url=http://example \
+              --set tls.caBundle=dGVzdA== \
+              > rendered.yaml
+            kubectl apply --dry-run=server -f rendered.yaml
+          done
 
-      - name: Install helm-diff plugin
+      - name: Install helm unittest plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest \
+            --version $HELM_UNITTEST_VERSION
+
+      - name: Helm unit tests
+        run: |
+          set -euo pipefail
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            helm unittest "$chart"
+          done
+
+      - name: Install helm diff plugin
         run: |
           helm plugin remove diff || true
           helm plugin install https://github.com/databus23/helm-diff --version v3.9.5
 
-      - name: Helm diff (allow-unreleased)
+      - name: Helm diff
         run: |
-          helm diff upgrade sentinel-agent charts/agent \
-            --set sentinelSRE.url=http://example \
-            --set tls.caBundle=dGVzdA== \
-            --allow-unreleased || true
+          set -euo pipefail
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            helm diff upgrade sentinel-test "$chart" \
+              --set sentinelSRE.url=http://example \
+              --set tls.caBundle=dGVzdA== \
+              --allow-unreleased || true
+          done
 
-      - name: Chart version gate (pull request)
+      - name: Chart version gate
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
-
-          CHART_PATH="charts/agent"
-          CHART_FILE="$CHART_PATH/Chart.yaml"
-
-          CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
-          STRUCTURAL_CHANGE=false
-
-          for file in $CHANGED_FILES; do
-            if [[ "$file" == "$CHART_PATH/templates/"* ]] || \
-               [[ "$file" == "$CHART_PATH/values.yaml" ]] || \
-               [[ "$file" == "$CHART_FILE" ]]; then
-              STRUCTURAL_CHANGE=true
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            CHART_FILE="$chart/Chart.yaml"
+            CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
+            STRUCTURAL_CHANGE=false
+            for file in $CHANGED_FILES; do
+              if [[ "$file" == "$chart/templates/"* ]] || \
+                 [[ "$file" == "$chart/values.yaml" ]] || \
+                 [[ "$file" == "$CHART_FILE" ]]; then
+                STRUCTURAL_CHANGE=true
+              fi
+            done
+            if [[ "$STRUCTURAL_CHANGE" == "true" ]]; then
+              OLD_VERSION=$(git show origin/develop:$CHART_FILE | yq '.version')
+              NEW_VERSION=$(yq '.version' "$CHART_FILE")
+              if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
+                exit 1
+              fi
             fi
           done
 
-          if [[ "$STRUCTURAL_CHANGE" == "true" ]]; then
-            OLD_VERSION=$(git show origin/develop:$CHART_FILE | yq '.version')
-            NEW_VERSION=$(yq '.version' "$CHART_FILE")
-
-            if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
-              echo "ERROR: Chart version must be bumped when structure changes"
-              exit 1
-            fi
-          fi
-
-      # Auto-bump version on develop
-      - name: Auto-bump chart version on develop
+      - name: Auto bump chart version
         if: github.event_name == 'push' && github.ref_name == 'develop'
         run: |
           set -euo pipefail
-
-          CHART_PATH="charts/agent"
-          CHART_FILE="$CHART_PATH/Chart.yaml"
-
-          CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
-          STRUCTURAL_CHANGE=false
-
-          for file in $CHANGED_FILES; do
-            if [[ "$file" == "$CHART_PATH/templates/"* ]] || \
-               [[ "$file" == "$CHART_PATH/values.yaml" ]] || \
-               [[ "$file" == "$CHART_FILE" ]]; then
-              STRUCTURAL_CHANGE=true
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            CHART_FILE="$chart/Chart.yaml"
+            CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
+            STRUCTURAL_CHANGE=false
+            for file in $CHANGED_FILES; do
+              if [[ "$file" == "$chart/templates/"* ]] || \
+                 [[ "$file" == "$chart/values.yaml" ]] || \
+                 [[ "$file" == "$CHART_FILE" ]]; then
+                STRUCTURAL_CHANGE=true
+              fi
+            done
+            if [[ "$STRUCTURAL_CHANGE" != "true" ]]; then
+              continue
             fi
+            CURRENT_VERSION=$(yq '.version' "$CHART_FILE")
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+            yq -i ".version = \"$NEW_VERSION\"" "$CHART_FILE"
+            git config user.name "sentinel-bot"
+            git config user.email "sentinel-bot@users.noreply.github.com"
+            git add "$CHART_FILE"
+            git commit -m "chore(chart): auto-bump $(basename $chart) to $NEW_VERSION [skip ci]"
           done
-
-          if [[ "$STRUCTURAL_CHANGE" != "true" ]]; then
-            echo "No structural chart changes detected"
-            exit 0
-          fi
-
-          CURRENT_VERSION=$(yq '.version' "$CHART_FILE")
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-
-          yq -i ".version = \"$NEW_VERSION\"" "$CHART_FILE"
-
-          git config user.name "chart-bot"
-          git config user.email "chart-bot@users.noreply.github.com"
-          git add "$CHART_FILE"
-          git commit -m "chore(chart): auto-bump sentinel-agent to $NEW_VERSION [skip ci]"
           git push origin HEAD:develop
