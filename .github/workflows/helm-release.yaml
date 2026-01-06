@@ -7,6 +7,8 @@ on:
     paths:
       - "charts/**"
 
+permissions:
+    contents: write
 env:
   CHARTS_DIR: charts
 
