@@ -44,6 +44,11 @@ jobs:
 
       - name: Start KinD cluster
         uses: helm/kind-action@v1
+    
+      - name: Ensure sentinel namespace exists
+        run: |
+            kubectl create namespace sentinel --dry-run=server -o yaml | kubectl apply -f -
+
 
       - name: Discover Helm charts
         id: charts
