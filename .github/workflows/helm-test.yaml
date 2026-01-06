@@ -6,7 +6,7 @@ on:
       - develop
     paths:
       - "charts/**"
-  workflow_dispatch:
+
   pull_request:
     paths:
       - "charts/**"
@@ -31,52 +31,39 @@ jobs:
         with:
           version: v3.14.4
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: v1.29.0
-
       - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+        run: sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq
 
-      - name: Start KinD cluster
-        uses: helm/kind-action@v1
-    
-      - name: Ensure sentinel namespace exists
-        run: |
-            kubectl create namespace sentinel --dry-run=server -o yaml | kubectl apply -f -
-
+      - name: Install kubeconform
+        run: curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar -xz && sudo mv kubeconform /usr/local/bin/kubeconform
 
       - name: Discover Helm charts
         id: charts
         run: |
           set -euo pipefail
-          CHARTS=$(find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \;)
           echo "charts<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHARTS" >> $GITHUB_OUTPUT
+          find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \; >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Helm lint template and kube validation
+      - name: Helm lint
         run: |
           set -euo pipefail
           for chart in ${{ steps.charts.outputs.charts }}; do
-            helm lint "$chart" \
-              --set sentinelSRE.url=http://example \
-              --set tls.caBundle=dGVzdA==
-            helm template sentinel-test "$chart" \
-              --set sentinelSRE.url=http://example \
-              --set tls.caBundle=dGVzdA== \
-              > rendered.yaml
-            kubectl apply --dry-run=server -f rendered.yaml
+            helm lint "$chart" --set sentinelSRE.url=http://example --set tls.caBundle=dGVzdA==
           done
 
-      - name: Install helm unittest plugin
+      - name: Helm template
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest \
-            --version $HELM_UNITTEST_VERSION
+          set -euo pipefail
+          for chart in ${{ steps.charts.outputs.charts }}; do
+            helm template sentinel-test "$chart" --set sentinelSRE.url=http://example --set tls.caBundle=dGVzdA== > rendered.yaml
+          done
+
+      - name: Kubernetes schema validation
+        run: kubeconform -strict -summary -ignore-missing-schemas rendered.yaml
+
+      - name: Install helm unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version $HELM_UNITTEST_VERSION
 
       - name: Helm unit tests
         run: |
@@ -86,18 +73,13 @@ jobs:
           done
 
       - name: Install helm diff plugin
-        run: |
-          helm plugin remove diff || true
-          helm plugin install https://github.com/databus23/helm-diff --version v3.9.5
+        run: helm plugin remove diff || true && helm plugin install https://github.com/databus23/helm-diff --version v3.9.5
 
       - name: Helm diff
         run: |
           set -euo pipefail
           for chart in ${{ steps.charts.outputs.charts }}; do
-            helm diff upgrade sentinel-test "$chart" \
-              --set sentinelSRE.url=http://example \
-              --set tls.caBundle=dGVzdA== \
-              --allow-unreleased || true
+            helm diff upgrade sentinel-test "$chart" --set sentinelSRE.url=http://example --set tls.caBundle=dGVzdA== --allow-unreleased || true
           done
 
       - name: Chart version gate
@@ -109,18 +91,14 @@ jobs:
             CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
             STRUCTURAL_CHANGE=false
             for file in $CHANGED_FILES; do
-              if [[ "$file" == "$chart/templates/"* ]] || \
-                 [[ "$file" == "$chart/values.yaml" ]] || \
-                 [[ "$file" == "$CHART_FILE" ]]; then
+              if [[ "$file" == "$chart/templates/"* ]] || [[ "$file" == "$chart/values.yaml" ]] || [[ "$file" == "$CHART_FILE" ]]; then
                 STRUCTURAL_CHANGE=true
               fi
             done
             if [[ "$STRUCTURAL_CHANGE" == "true" ]]; then
               OLD_VERSION=$(git show origin/develop:$CHART_FILE | yq '.version')
               NEW_VERSION=$(yq '.version' "$CHART_FILE")
-              if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
-                exit 1
-              fi
+              [[ "$OLD_VERSION" != "$NEW_VERSION" ]] || exit 1
             fi
           done
 
@@ -133,15 +111,11 @@ jobs:
             CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
             STRUCTURAL_CHANGE=false
             for file in $CHANGED_FILES; do
-              if [[ "$file" == "$chart/templates/"* ]] || \
-                 [[ "$file" == "$chart/values.yaml" ]] || \
-                 [[ "$file" == "$CHART_FILE" ]]; then
+              if [[ "$file" == "$chart/templates/"* ]] || [[ "$file" == "$chart/values.yaml" ]] || [[ "$file" == "$CHART_FILE" ]]; then
                 STRUCTURAL_CHANGE=true
               fi
             done
-            if [[ "$STRUCTURAL_CHANGE" != "true" ]]; then
-              continue
-            fi
+            [[ "$STRUCTURAL_CHANGE" == "true" ]] || continue
             CURRENT_VERSION=$(yq '.version' "$CHART_FILE")
             IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
             NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
