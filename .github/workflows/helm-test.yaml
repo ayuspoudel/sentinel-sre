@@ -58,7 +58,9 @@ jobs:
         run: |
           set -euo pipefail
           for chart in ${{ steps.charts.outputs.charts }}; do
-            helm lint "$chart"
+            helm lint "$chart" \
+              --set sentinelSRE.url=http://example \
+              --set tls.caBundle=dGVzdA==
             helm template sentinel-test "$chart" \
               --set sentinelSRE.url=http://example \
               --set tls.caBundle=dGVzdA== \
