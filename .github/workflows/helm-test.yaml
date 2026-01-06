@@ -1,11 +1,11 @@
 name: Helm Chart Tests
 
 on:
-#   push:
-#     branches:
-#       - develop
-#     paths:
-#       - "charts/**"
+  push:
+    branches:
+      - develop
+    paths:
+      - "charts/**"
   workflow_dispatch:
   pull_request:
     paths:
