@@ -1,24 +1,18 @@
 namespace:
   name: sentinel
   create: true
-
 image:
   repository: sentinel-agent
-  tag: latest
+  tag: latest..1
   pullPolicy: IfNotPresent
-
 replicaCount: 1
-
 sentinelSRE:
   url: "" # REQUIRED
-
 tls:
   secretName: sentinel-agent-tls
-
 webhook:
   failurePolicy: Fail
   timeoutSeconds: 5
-
 selectors:
   namespaceLabel:
     key: sentinel.guard/enabled
