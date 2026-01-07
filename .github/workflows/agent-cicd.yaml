@@ -1,5 +1,5 @@
-name: Demo API CI/CD
-run-name: Demo API CI/CD - ${{ github.actor }}
+name: Sentinel Agent CI/CD
+run-name: Sentinel Agent CI/CD - ${{ github.actor }}
 
 on:
   push:
