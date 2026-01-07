@@ -6,3 +6,4 @@
 [![Sentinel Agent CI/CD](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/agent-cicd.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/agent-cicd.yaml)
 
 [![Helm Repo E2E Test for Sentinel Agent](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml)
+[![Helm Chart Version Bump](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml)
