@@ -1,5 +1,4 @@
 name: Sentinel Agent CI/CD
-run-name: Sentinel Agent CI/CD - ${{ github.actor }}
 
 on:
   push:
@@ -85,7 +84,7 @@ jobs:
       - name: Write change artifact
         run: |
           mkdir -p changes
-          jq -n --arg version "${{ steps.bump.outputs.new }}" '{version: $version}' > changes/demo-api.json
+          jq -n --arg version "${{ steps.bump.outputs.new }}" '{version: $version}' > changes/sentinel-agent.json
 
       - name: Upload change artifact
         uses: actions/upload-artifact@v4
