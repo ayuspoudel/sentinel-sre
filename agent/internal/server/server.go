@@ -40,7 +40,7 @@ func NewServer(addr string, admissionHandler *admission.Handler) *Server {
 
 func (s *Server) Start() error {
 	log.Printf("starting admission server on %s", s.http.Addr)
-	return s.http.ListenAndServeTLS("tls/tls.crt", "tls/tls.key")
+	return s.http.ListenAndServeTLS("/tls.crt", "/tls/tls.key")
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
