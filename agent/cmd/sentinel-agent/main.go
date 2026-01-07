@@ -31,7 +31,7 @@ func main() {
 	}()
 
 	<-stop
-	log.Println("sentinel-agent shutting down")
+	log.Println("sentinel-agent shutting  down")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
