@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: sentinel-agent-tls
+  namespace: {{ include "sentinel-agent.namespace" . }}
+spec:
+  secretName: {{ .Values.tls.secretName }}
+  duration: 2160h      # 90 days
+  renewBefore: 360h    # 15 days
+  issuerRef:
+    name: sentinel-ca
+    kind: Issuer
+  dnsNames:
+    - sentinel-agent.{{ include "sentinel-agent.namespace" . }}.svc
+    - sentinel-agent.{{ include "sentinel-agent.namespace" . }}.svc.cluster.local

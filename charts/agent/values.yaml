@@ -14,7 +14,6 @@ sentinelSRE:
 
 tls:
   secretName: sentinel-agent-tls
-  caBundle: "" # REQUIRED (base64 encoded CA cert)
 
 webhook:
   failurePolicy: Fail

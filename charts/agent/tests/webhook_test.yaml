@@ -7,7 +7,6 @@ tests:
   - it: should create validating admission webhook
     set:
       sentinelSRE.url: http://sentinel-sre.example
-      tls.caBundle: ZHVtbXk=
     asserts:
       - isKind:
           of: ValidatingAdmissionWebhookConfiguration
@@ -15,7 +14,6 @@ tests:
   - it: should set failurePolicy to Fail
     set:
       sentinelSRE.url: http://sentinel-sre.example
-      tls.caBundle: ZHVtbXk=
       webhook.failurePolicy: Fail
     asserts:
       - equal:
@@ -25,7 +23,6 @@ tests:
   - it: should require namespace opt-in
     set:
       sentinelSRE.url: http://sentinel-sre.example
-      tls.caBundle: ZHVtbXk=
     asserts:
       - equal:
           path: webhooks[0].namespaceSelector.matchExpressions[0].key
@@ -34,7 +31,6 @@ tests:
   - it: should require workload guard label
     set:
       sentinelSRE.url: http://sentinel-sre.example
-      tls.caBundle: ZHVtbXk=
     asserts:
       - equal:
           path: webhooks[0].objectSelector.matchExpressions[0].operator
@@ -43,6 +39,5 @@ tests:
   - it: should match the webhook snapshot
     set:
       sentinelSRE.url: http://sentinel-sre.example
-      tls.caBundle: ZHVtbXk=
     asserts:
       - matchSnapshot: {}

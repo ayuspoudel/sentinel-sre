@@ -1,50 +1,53 @@
 {
-  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["sentinelSRE", "tls"],
   "properties": {
     "namespace": {
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "create": { "type": "boolean" }
-      }
+      },
+      "required": ["name", "create"]
     },
+
     "image": {
       "type": "object",
       "properties": {
         "repository": { "type": "string" },
         "tag": { "type": "string" },
         "pullPolicy": { "type": "string" }
-      }
+      },
+      "required": ["repository", "tag", "pullPolicy"]
     },
+
     "replicaCount": {
       "type": "integer",
       "minimum": 1
     },
+
     "sentinelSRE": {
       "type": "object",
-      "required": ["url"],
       "properties": {
         "url": {
           "type": "string",
-          "minLength": 1
+           "minLength": 1
         }
-      }
+      },
+     "required": ["url"]
     },
+
     "tls": {
       "type": "object",
-      "required": ["secretName", "caBundle"],
       "properties": {
         "secretName": {
-          "type": "string"
-        },
-        "caBundle": {
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "required": ["secretName"]
     },
+
     "webhook": {
       "type": "object",
       "properties": {
@@ -57,7 +60,39 @@
           "minimum": 1,
           "maximum": 30
         }
-      }
+      },
+      "required": ["failurePolicy", "timeoutSeconds"]
+    },
+
+    "selectors": {
+      "type": "object",
+      "properties": {
+        "namespaceLabel": {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string" },
+            "value": { "type": "string" }
+          },
+          "required": ["key", "value"]
+        },
+        "workloadLabel": {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string" }
+          },
+          "required": ["key"]
+        }
+      },
+      "required": ["namespaceLabel", "workloadLabel"]
     }
-  }
+  },
+  "required": [
+    "namespace",
+    "image",
+    "replicaCount",
+    "sentinelSRE",
+    "tls",
+    "webhook",
+    "selectors"
+  ]
 }
