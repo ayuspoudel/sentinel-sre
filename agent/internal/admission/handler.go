@@ -26,7 +26,7 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if review.Request == nil {
-		http.Error(w, "invalid admission review", http.StatusBadRequest)
+		http.Error(w, "invalid admission review ", http.StatusBadRequest)
 		return
 	}
 
