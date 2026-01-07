@@ -7,14 +7,12 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o sentinelagent ./cmd/sentinel-agent
+    go build -o sentinel-agent ./cmd/sentinel-agent
 
 FROM alpine:3.20
 
 WORKDIR /app
 
-COPY --from=builder /app/sentinelagent .
+COPY --from=builder /app/sentinel-agent /sentinel-agent
 
-EXPOSE 8080
-
-CMD ["./sentinelagent"]
+ENTRYPOINT ["/sentinel-agent"]
