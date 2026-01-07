@@ -59,10 +59,14 @@ jobs:
 
       - name: Commit snapshot updates
         run: |
-          git config user.name "sentinel-bot"
-          git config user.email "sentinel-bot@users.noreply.github.com"
+          git config user.name "sentinelSre-bot"
+          git config user.email "sentinelSre-bot@users.noreply.github.com"
 
-          git add charts/**/__snapshots__/*
+          git status --porcelain \
+            | awk '{print $2}' \
+            | grep '__snapshots__/' \
+            | xargs -r git add
+
           git commit -m "test(chart): update helm snapshots"
 
       - name: Push snapshot commit
