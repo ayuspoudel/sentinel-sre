@@ -9,7 +9,7 @@ tests:
       sentinelSRE.url: http://sentinel-sre.example
     asserts:
       - isKind:
-          of: ValidatingAdmissionWebhookConfiguration
+          of: ValidatingWebhookConfiguration
 
   - it: should set failurePolicy to Fail
     set:
