@@ -30,16 +30,18 @@ jobs:
         with:
           version: v3.14.4
 
-      - name: Fetch gh-pages
-        run: git fetch origin $GH_PAGES_BRANCH || true
+      # Fresh gh-pages checkout (no merge, no history pollution)
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GH_PAGES_BRANCH }}
+          path: docs
+        continue-on-error: true
 
-      - name: Prepare gh-pages worktree
+      - name: Reset gh-pages content
         run: |
-          if git show-ref --verify --quiet refs/remotes/origin/$GH_PAGES_BRANCH; then
-            git worktree add docs origin/$GH_PAGES_BRANCH
-          else
-            git worktree add docs --orphan $GH_PAGES_BRANCH
-          fi
+          rm -rf docs/*
+          mkdir -p docs
 
       - name: Discover Helm charts
         id: charts
@@ -51,30 +53,28 @@ jobs:
 
       - name: Package charts
         run: |
-          mkdir -p docs/packages
+          set -euo pipefail
           for chart in ${{ steps.charts.outputs.charts }}; do
             helm dependency update "$chart" || true
-            helm package "$chart" --destination docs/packages
+            helm package "$chart" --destination docs
           done
 
-      - name: Update Helm index
+      - name: Generate Helm index
         run: |
-          helm repo index docs \
-            --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} \
-            --merge docs/index.yaml || \
           helm repo index docs \
             --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
       - name: Publish Helm repo
         run: |
           cd docs
-          if [[ -z "$(git status --porcelain)" ]]; then
-            echo "No new charts to publish"
-            exit 0
-          fi
+
+          git init
+          git remote add origin https://github.com/${{ github.repository }}.git
+          git checkout -B $GH_PAGES_BRANCH
 
           git config user.name "sentinelSRE-bot"
           git config user.email "sentinelSRE-bot@users.noreply.github.com"
+
           git add .
           git commit -m "chore(release): publish helm charts"
-          git push origin HEAD:$GH_PAGES_BRANCH
+          git push --force origin $GH_PAGES_BRANCH
