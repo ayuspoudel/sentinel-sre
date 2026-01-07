@@ -3,22 +3,12 @@ entries:
   sentinel-agent:
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-07T21:43:06.006871997Z"
+    created: "2026-01-07T21:55:14.807606093Z"
     description: Sentinel SRE admission controller agent
-    digest: 51d3b472961f67635897185d2621c6250adcc851768f6a255992d703e59ec880
+    digest: 2a0cccf1a5e6c984fef949694616e08ddd90f43f2fe2abc7de56d6c00a961b2f
     name: sentinel-agent
     type: application
     urls:
-    - https://ayuspoudel.github.io/sentinel-sre/sentinel-agent-0.1.12.tgz
-    version: 0.1.12
-  - apiVersion: v2
-    appVersion: v1
-    created: "2026-01-07T21:43:06.007360498Z"
-    description: Sentinel SRE admission controller agent
-    digest: 887081fa6f6bdcede1fbfac8218573487813fe6aa2298af9ce027e800a35a997
-    name: sentinel-agent
-    type: application
-    urls:
-    - https://ayuspoudel.github.io/sentinel-sre/packages/sentinel-agent-0.1.6.tgz
-    version: 0.1.6
-generated: "2026-01-07T21:43:06.006157851Z"
+    - https://ayuspoudel.github.io/sentinel-sre/sentinel-agent-1.0.1.tgz
+    version: 1.0.1
+generated: "2026-01-07T21:55:14.807195437Z"
