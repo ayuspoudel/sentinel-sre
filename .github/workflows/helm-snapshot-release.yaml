@@ -59,16 +59,16 @@ jobs:
 
       - name: Commit snapshot updates
         run: |
-          git config user.name "sentinelSre-bot"
-          git config user.email "sentinelSre-bot@users.noreply.github.com"
-
-          git status --porcelain \
+            git config user.name "sentinelSre-bot"
+            git config user.email "sentinelSre-bot@users.noreply.github.com"
+    
+            git status --porcelain \
             | awk '{print $2}' \
-            | grep '__snapshots__/' \
+            | grep '__snapshot__/' \
             | xargs -r git add
-
-          git commit -m "test(chart): update helm snapshots"
-
+    
+            git commit -m "test(chart): update helm snapshots"
+  
       - name: Push snapshot commit
         run: |
           git push origin HEAD
