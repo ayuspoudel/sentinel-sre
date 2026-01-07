@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -13,7 +14,7 @@ type Action struct {
 }
 
 var (
-	SentinelAddress = "http://localhost:8000"
+	SentinelAddress = os.Getenv("SENTINEL_CP_URL")
 )
 
 func CheckWithSentinel(ctx context.Context, guard string) (bool, string) {
