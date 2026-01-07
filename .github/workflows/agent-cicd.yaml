@@ -4,7 +4,7 @@ on:
   push:
     branches: [ develop ]
     paths:
-      - "agent/"
+      - "agent/*"
   workflow_dispatch:
 
 jobs:
