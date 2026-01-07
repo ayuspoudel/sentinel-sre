@@ -51,7 +51,7 @@ jobs:
           CHANGED_FILES=$(git status --porcelain | awk '{print $2}')
 
           for file in $CHANGED_FILES; do
-            if [[ "$file" != *"__snapshots__"* ]]; then
+            if [[ "$file" != *"__snapshot__"* && "$file" != *"__snapshots__"* ]]; then
               echo "Non-snapshot file modified: $file"
               exit 1
             fi
