@@ -1,0 +1,70 @@
+name: Helm Snapshot Update (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      chart:
+        description: "Chart directory (e.g. charts/agent)"
+        required: true
+        default: "charts/agent"
+
+env:
+  HELM_UNITTEST_VERSION: v0.3.6
+
+jobs:
+  update-snapshots:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Safety check (no main branch)
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "Snapshot updates are not allowed on main"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Install helm unittest plugin
+        run: |
+          helm plugin install \
+            https://github.com/helm-unittest/helm-unittest \
+            --version $HELM_UNITTEST_VERSION
+
+      - name: Update Helm snapshots
+        run: |
+          set -euo pipefail
+          helm unittest "${{ inputs.chart }}" -u
+
+      - name: Verify snapshot changes only
+        run: |
+          set -euo pipefail
+
+          CHANGED_FILES=$(git status --porcelain | awk '{print $2}')
+
+          for file in $CHANGED_FILES; do
+            if [[ "$file" != *"__snapshots__"* ]]; then
+              echo "Non-snapshot file modified: $file"
+              exit 1
+            fi
+          done
+
+      - name: Commit snapshot updates
+        run: |
+          git config user.name "sentinel-bot"
+          git config user.email "sentinel-bot@users.noreply.github.com"
+
+          git add charts/**/__snapshots__/*
+          git commit -m "test(chart): update helm snapshots"
+
+      - name: Push snapshot commit
+        run: |
+          git push origin HEAD
