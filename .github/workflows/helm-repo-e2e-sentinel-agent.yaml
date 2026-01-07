@@ -1,0 +1,76 @@
+name: Helm Repo E2E Test for Sentinel Agent
+
+on:
+  workflow_run:
+    workflows: ["Helm Chart Release"]
+    types:
+      - completed
+
+env:
+  HELM_REPO_NAME: sentinel-sre
+  HELM_REPO_URL: https://ayuspoudel.github.io/sentinel-sre
+  RELEASE_NAME: sentinel
+  NAMESPACE: sentinel
+
+jobs:
+  helm-repo-e2e:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (for reference only)
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: sentinel-e2e
+
+      - name: Install cert-manager
+        run: |
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+          kubectl rollout status deployment cert-manager -n cert-manager --timeout=120s
+          kubectl rollout status deployment cert-manager-webhook -n cert-manager --timeout=120s
+          kubectl rollout status deployment cert-manager-cainjector -n cert-manager --timeout=120s
+
+      - name: Helm repo add
+        run: |
+          helm repo add $HELM_REPO_NAME $HELM_REPO_URL
+          helm repo update
+
+      - name: Helm repo sanity check
+        run: |
+          helm search repo $HELM_REPO_NAME | grep sentinel-agent
+
+      - name: Helm install from repo
+        run: |
+          helm install $RELEASE_NAME $HELM_REPO_NAME/sentinel-agent \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            --set sentinelSRE.url=http://sentinel-sre.example
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/sentinel-agent \
+            -n $NAMESPACE \
+            --timeout=120s
+
+      - name: Verify webhook exists
+        run: |
+          kubectl get validatingwebhookconfigurations | grep sentinel-agent
+
+      - name: Dump diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get all -A
+          kubectl get events -A

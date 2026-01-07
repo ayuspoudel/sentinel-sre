@@ -1,0 +1,92 @@
+name: Helm Chart Version Bump
+
+on:
+  workflow_run:
+    workflows: ["Helm Chart Tests"]
+    types:
+      - completed
+
+env:
+  CHARTS_DIR: charts
+
+jobs:
+  bump-version:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Prevent bot recursion
+        run: |
+          AUTHOR=$(git log -1 --pretty=format:'%an')
+          if [[ "$AUTHOR" == "sentinelSRE-bot" ]]; then
+            echo "Version bump already done by bot. Exiting."
+            exit 0
+          fi
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Detect structural chart changes
+        id: changes
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+
+          CHANGED=$(git diff --name-only origin/develop~1..origin/develop)
+
+          echo "changed<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Bump chart versions
+        run: |
+          set -euo pipefail
+
+          for chart in $(find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \;); do
+            CHART_FILE="$chart/Chart.yaml"
+
+            STRUCTURAL=false
+            for file in ${{ steps.changes.outputs.changed }}; do
+              if [[ "$file" == "$chart/templates/"* ]] \
+                 || [[ "$file" == "$chart/values.yaml" ]] \
+                 || [[ "$file" == "$CHART_FILE" ]]; then
+                STRUCTURAL=true
+              fi
+            done
+
+            [[ "$STRUCTURAL" == "true" ]] || continue
+
+            CURRENT=$(yq '.version' "$CHART_FILE")
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+
+            echo "Bumping $(basename $chart): $CURRENT → $NEW"
+            yq -i ".version = \"$NEW\"" "$CHART_FILE"
+          done
+
+      - name: Commit version bumps
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No versions to bump"
+            exit 0
+          fi
+
+          git config user.name "sentinelSRE-bot"
+          git config user.email "sentinelSRE-bot@users.noreply.github.com"
+
+          git add charts/**/Chart.yaml
+          git commit -m "chore(chart): auto-bump chart version [skip ci]"
+          git push origin develop

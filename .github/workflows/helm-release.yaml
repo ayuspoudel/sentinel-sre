@@ -1,58 +1,80 @@
 name: Helm Chart Release
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - "charts/**"
+  workflow_run:
+    workflows: ["Helm Chart Version Bump"]
+    types:
+      - completed
 
 permissions:
-    contents: write
+  contents: write
+
 env:
   CHARTS_DIR: charts
+  GH_PAGES_BRANCH: gh-pages
 
 jobs:
   release:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout develop
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: develop
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
           version: v3.14.4
 
+      - name: Fetch gh-pages
+        run: git fetch origin $GH_PAGES_BRANCH || true
+
+      - name: Prepare gh-pages worktree
+        run: |
+          if git show-ref --verify --quiet refs/remotes/origin/$GH_PAGES_BRANCH; then
+            git worktree add docs origin/$GH_PAGES_BRANCH
+          else
+            git worktree add docs --orphan $GH_PAGES_BRANCH
+          fi
+
       - name: Discover Helm charts
         id: charts
         run: |
-          set -euo pipefail
-          CHARTS=$(find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \;)
+          find $CHARTS_DIR -maxdepth 2 -name Chart.yaml -exec dirname {} \; > charts.txt
           echo "charts<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHARTS" >> $GITHUB_OUTPUT
+          cat charts.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Package charts
         run: |
-          set -euo pipefail
-          mkdir -p docs
+          mkdir -p docs/packages
           for chart in ${{ steps.charts.outputs.charts }}; do
             helm dependency update "$chart" || true
-            helm package "$chart" --destination docs
+            helm package "$chart" --destination docs/packages
           done
 
-      - name: Generate Helm index
+      - name: Update Helm index
         run: |
+          helm repo index docs \
+            --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} \
+            --merge docs/index.yaml || \
           helm repo index docs \
             --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
       - name: Publish Helm repo
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs
-          publish_branch: gh-pages
+        run: |
+          cd docs
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No new charts to publish"
+            exit 0
+          fi
+
+          git config user.name "sentinelSRE-bot"
+          git config user.email "sentinelSRE-bot@users.noreply.github.com"
+          git add .
+          git commit -m "chore(release): publish helm charts"
+          git push origin HEAD:$GH_PAGES_BRANCH

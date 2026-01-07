@@ -14,17 +14,20 @@ on:
 env:
   CHARTS_DIR: charts
   HELM_UNITTEST_VERSION: v0.3.6
+concurrency:
+  group: helm-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   helm-test:
     runs-on: ubuntu-latest
-
+    outputs:
+      charts: ${{ steps.charts.outputs.charts }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITOPS_TOKEN }}
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -101,7 +104,7 @@ jobs:
               --allow-unreleased || true
           done
 
-      - name: Chart version gate
+      - name: Chart version gate (PR only)
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
@@ -124,36 +127,3 @@ jobs:
               [[ "$OLD_VERSION" != "$NEW_VERSION" ]] || exit 1
             fi
           done
-
-      - name: Auto bump chart version
-        if: github.event_name == 'push' && github.ref_name == 'develop'
-        run: |
-          set -euo pipefail
-          for chart in ${{ steps.charts.outputs.charts }}; do
-            CHART_FILE="$chart/Chart.yaml"
-            CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
-            STRUCTURAL_CHANGE=false
-
-            for file in $CHANGED_FILES; do
-              if [[ "$file" == "$chart/templates/"* ]] \
-                 || [[ "$file" == "$chart/values.yaml" ]] \
-                 || [[ "$file" == "$CHART_FILE" ]]; then
-                STRUCTURAL_CHANGE=true
-              fi
-            done
-
-            [[ "$STRUCTURAL_CHANGE" == "true" ]] || continue
-
-            CURRENT_VERSION=$(yq '.version' "$CHART_FILE")
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-
-            yq -i ".version = \"$NEW_VERSION\"" "$CHART_FILE"
-
-            git config user.name "sentinelSRE-bot"
-            git config user.email "sentinelSRE-bot@users.noreply.github.com"
-            git add "$CHART_FILE"
-            git commit -m "chore(chart): auto-bump $(basename $chart) to $NEW_VERSION "
-          done
-
-          git push origin HEAD:develop
