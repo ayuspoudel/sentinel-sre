@@ -3,12 +3,13 @@ should match the webhook snapshot:
     apiVersion: admissionregistration.k8s.io/v1
     kind: ValidatingAdmissionWebhookConfiguration
     metadata:
+      annotations:
+        cert-manager.io/inject-ca-from: sentinel/sentinel-agent-tls
       name: sentinel-agent
     webhooks:
       - admissionReviewVersions:
           - v1
         clientConfig:
-          caBundle: ZHVtbXk=
           service:
             name: sentinel-agent
             namespace: sentinel
