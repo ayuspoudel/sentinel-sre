@@ -15,7 +15,7 @@ func NewHandler() *Handler {
 }
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed ", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
