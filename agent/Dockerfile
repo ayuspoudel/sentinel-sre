@@ -14,5 +14,4 @@ FROM alpine:3.20
 WORKDIR /app
 
 COPY --from=builder /app/sentinel-agent /sentinel-agent
-
 ENTRYPOINT ["/sentinel-agent"]
