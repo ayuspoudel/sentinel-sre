@@ -1,6 +1,6 @@
 apiVersion: v2
 name: sentinel-agent
-description: Sentinel SRE admission controller agent 
+description: Sentinel SRE admission controller agent
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "v1"
