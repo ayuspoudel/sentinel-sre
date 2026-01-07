@@ -1,7 +1,7 @@
 should match the webhook snapshot:
   1: |
     apiVersion: admissionregistration.k8s.io/v1
-    kind: ValidatingAdmissionWebhookConfiguration
+    kind: ValidatingWebhookConfiguration
     metadata:
       annotations:
         cert-manager.io/inject-ca-from: sentinel/sentinel-agent-tls
