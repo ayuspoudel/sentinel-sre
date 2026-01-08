@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: sentinel-sre
-  labels:
-    app.kubernetes.io/name: sentinel
-    app.kubernetes.io/component: sre
-    app.kubernetes.io/version: v1
