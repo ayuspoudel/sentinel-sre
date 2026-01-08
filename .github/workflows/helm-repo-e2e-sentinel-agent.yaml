@@ -55,9 +55,11 @@ jobs:
 
       - name: Helm install from repo
         run: |
-          helm install $RELEASE_NAME $HELM_REPO_NAME/sentinel-agent \
-            --namespace $NAMESPACE \
-            --set sentinelSRE.url=http://sentinel-sre.example
+            helm install $RELEASE_NAME $HELM_REPO_NAME/sentinel-agent \
+              --namespace $NAMESPACE \
+              --create-namespace \
+              --set sentinelSRE.url=http://sentinel-sre.example
+
 
       - name: Wait for deployment
         run: |
