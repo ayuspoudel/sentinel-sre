@@ -8,10 +8,11 @@ import (
 )
 
 type Handler struct {
+	sentinel *client.SentinelClient
 }
 
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(s *client.SentinelClient) *Handler {
+	return &Handler{sentinel: s}
 }
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	// if the method is not a post request we deny it because its none of our webhook server's interest to serve a get... request
@@ -44,7 +45,7 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// We are here calling sentinel api to check if the guard for this application allows it to be deployed right now or not
-	allowed, reason := client.CheckWithSentinel(r.Context(), guardName)
+	allowed, reason := h.sentinel.CheckWithSentinel(r.Context(), guardName)
 
 	// We get the resposne from sentinel, and feed it into our already built response struct inside Admission review and we write the response
 	// reponse function already returns a AdmissionReviewResponse struct and we feed allowed and reason in it

@@ -10,16 +10,26 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/agent/internal/admission"
+	"github.com/ayuspoudel/sentinel-sre/agent/internal/client"
 	"github.com/ayuspoudel/sentinel-sre/agent/internal/server"
 )
 
 func main() {
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	admissionHandler := admission.NewHandler()
+	sentinel, err := client.NewSentinelClient()
+	if err != nil {
+		log.Fatalf("startup failed: %v", err)
+	}
+	if err := sentinel.HealthCheck(ctx); err != nil {
+		log.Printf("WARNING: sentinel not reachable at startup: %v", err)
+	} else {
+		log.Printf("Sentinel control plane reachable")
+	}
+	admissionHandler := admission.NewHandler(sentinel)
 	// Admission server
 	srv := server.NewServer(":8443", admissionHandler)
 
