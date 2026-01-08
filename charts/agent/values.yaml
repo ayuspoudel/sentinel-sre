@@ -7,7 +7,7 @@ image:
   pullPolicy: IfNotPresent
 replicaCount: 1
 sentinelSRE:
-  url: http://sentinel-sre.example
+  url: http://host.minikube.internal:8000
 tls:
   secretName: sentinel-agent-tls
 webhook:
