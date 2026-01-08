@@ -6,4 +6,8 @@ metadata:
   labels:
     app.kubernetes.io/name: sentinel
     app.kubernetes.io/component: agent
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
 {{- end }}
