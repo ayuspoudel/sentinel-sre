@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/internal/action"
-	"github.com/ayuspoudel/sentinel-sre/internal/cluster"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/action"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
