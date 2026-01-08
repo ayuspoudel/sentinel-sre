@@ -17,7 +17,7 @@ func NewHandler(s *client.SentinelClient) *Handler {
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	// if the method is not a post request we deny it because its none of our webhook server's interest to serve a get... request
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed ", http.StatusMethodNotAllowed)
 		return
 	}
 	// we build a admission review struct so we can decode the json we recieved as payload into it from kubernetes api
