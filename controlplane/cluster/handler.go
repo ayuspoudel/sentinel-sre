@@ -2,90 +2,128 @@ package cluster
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 )
 
 /*
-@ayuspoudel
-This is is a register request struct. A struct type that defines how a request to
-register a struct should come in as. This allows us to directly do json.Encode(&request)
-and help validate the request easily.
+Store is a type of struct we already have in store.go
+We have defined all functions in postgres_store.go because we will be using postgres
+It has functions like Create(cluster), Get(clusterName), List(), Delete(clusterName)
+Cluster is also a struct defined in model.go
 */
-type RegisterRequest struct {
-	Name    string `json:"name"`
-	AgentID string `json:"agent_id"`
-	Version string `json:"version"`
-	Address string `json:"address"`
+type Handler struct {
+	store Store
 }
 
-func RegisterHandler(store *Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req RegisterRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		if req.Name == "" || req.AgentID == "" {
-			http.Error(w, "name and agent_id required", http.StatusBadRequest)
-			return
-		}
-
-		store.Register(&Cluster{
-			Name:    req.Name,
-			AgentID: req.AgentID,
-			Version: req.Version,
-			Address: req.Address,
-		})
-
-		log.Printf("[cluster-register] Name=%s AgentId=%s Version=%s Address=%s", req.Name, req.AgentID, req.Version, req.Address)
-
-		w.WriteHeader(http.StatusCreated)
-	}
+func NewHandler(store Store) *Handler {
+	return &Handler{store: store}
 }
 
-func ListHandler(store *Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		_ = json.NewEncoder(w).Encode(store.List())
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	/*
+		RegisterRequest is a struct in api.go it has json: name, credentials_ref, labels
+		If a payload fails to provide these three things, it will trigger error
+	*/
+	var req RegisterRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" || req.CredentialRef == "" {
+		http.Error(w, "name and credential_ref required", http.StatusBadRequest)
+		return
+	}
+
+	c := &Cluster{Name: req.Name, CredentialRef: req.CredentialRef, Labels: req.Labels}
+	err = h.store.Create(r.Context(), c)
+	if err != nil {
+		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
-func GetByNameHandler(store *Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		/*
-			@ayuspoudel
-			We extract cluster name from the URL path.
-			Expected format: /clusters/{name}
-		*/
-		name := strings.TrimPrefix(r.URL.Path, "/clusters/")
-		if name == "" {
-			http.Error(w, "cluster name required", http.StatusBadRequest)
-			return
-		}
-
-		cluster, ok := store.Get(name)
-		if !ok {
-			http.Error(w, "cluster not found", http.StatusNotFound)
-			return
-		}
-
-		_ = json.NewEncoder(w).Encode(cluster)
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+
+	clusters, err := h.store.List(r.Context())
+	if err != nil {
+		http.Error(w, "failed to list clusters", http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(clusters)
+}
+
+func (h *Handler) GetByName(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := strings.TrimPrefix(r.URL.Path, "/clusters/")
+	if name == "" {
+		http.Error(w, "cluster name required", http.StatusBadRequest)
+		return
+	}
+
+	cluster, err := h.store.Get(r.Context(), name)
+	if err != nil {
+		http.Error(w, "failed to get cluster", http.StatusInternalServerError)
+		return
+	}
+	if cluster == nil {
+		http.Error(w, "cluster not found", http.StatusNotFound)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(cluster)
+}
+
+func (h *Handler) DeleteByName(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := strings.TrimPrefix(r.URL.Path, "/clusters/")
+	if name == "" {
+		http.Error(w, "cluster name required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.store.Delete(r.Context(), name)
+	if err != nil {
+		http.Error(w, "failed to delete cluster", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// DB reachability
+	_, err := h.store.List(r.Context())
+	if err != nil {
+		http.Error(w, "unhealthy", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
 }
