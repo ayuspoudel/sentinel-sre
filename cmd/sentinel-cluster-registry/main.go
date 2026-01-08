@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster"
 )
@@ -14,15 +17,20 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	ctx := context.Background()
-
-	db, err := cluster.NewDB(ctx, dbURL)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	db, err := cluster.NewDB(dbCtx, dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	err = cluster.RunMigrations(ctx, db)
+	migCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	err = cluster.RunMigrations(migCtx, db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,5 +39,9 @@ func main() {
 	handler := cluster.NewHandler(store)
 	server := cluster.NewServer(":8080", handler)
 
-	log.Fatal(server.Run())
+	err = server.Run(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }

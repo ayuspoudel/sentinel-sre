@@ -4,9 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -19,24 +16,26 @@ func NewServer(addr string, handler *Handler) *Server {
 	return &Server{addr: addr, handler: handler}
 }
 
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handler.Health)
 	mux.HandleFunc("/clusters", s.handler.Register)
 	mux.HandleFunc("/clusters/list", s.handler.List)
 	mux.HandleFunc("/clusters/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			s.handler.GetByName(w, r)
-			return
-		}
-		if r.Method == http.MethodDelete {
+		case http.MethodDelete:
 			s.handler.DeleteByName(w, r)
-			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})
 
-	httpServer := &http.Server{Addr: s.addr, Handler: mux}
+	httpServer := &http.Server{
+		Addr:    s.addr,
+		Handler: mux,
+	}
 
 	go func() {
 		log.Println("sentinel cluster registry listening on", s.addr)
@@ -45,13 +44,9 @@ func (s *Server) Run() error {
 		}
 	}()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+	<-ctx.Done()
 	log.Println("shutting down cluster registry")
-	return httpServer.Shutdown(ctx)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return httpServer.Shutdown(shutdownCtx)
 }
