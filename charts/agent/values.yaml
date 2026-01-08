@@ -7,7 +7,7 @@ image:
   pullPolicy: IfNotPresent
 replicaCount: 1
 sentinelSRE:
-  url: "" # REQUIRED 
+  url: http://sentinel-sre.example
 tls:
   secretName: sentinel-agent-tls
 webhook:
