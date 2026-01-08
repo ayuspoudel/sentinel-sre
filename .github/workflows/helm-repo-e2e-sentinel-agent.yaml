@@ -1,6 +1,7 @@
 name: Helm Repo E2E Test for Sentinel Agent
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["Helm Chart Release"]
     types:
