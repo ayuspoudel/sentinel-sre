@@ -1,2 +1,5 @@
 tls
 .local
+new-cluster
+*.txt
+sample-kubeconfig.*
