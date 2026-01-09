@@ -6,20 +6,22 @@ on:
       - develop
     paths:
       - "charts/**"
+
   pull_request:
     paths:
       - "charts/**"
+
   workflow_dispatch:
     inputs:
       chart:
         description: "Chart directory (e.g. charts/agent)"
         required: true
         default: "charts/agent"
-    
 
 env:
   HELM_UNITTEST_VERSION: v0.3.6
-  chart: "charts/agent"
+  DEFAULT_CHART: "charts/agent"
+
 jobs:
   update-snapshots:
     runs-on: ubuntu-latest
@@ -49,10 +51,24 @@ jobs:
             https://github.com/helm-unittest/helm-unittest \
             --version $HELM_UNITTEST_VERSION
 
+      - name: Resolve chart path
+        run: |
+          if [[ -n "${{ inputs.chart }}" ]]; then
+            echo "CHART_PATH=${{ inputs.chart }}" >> $GITHUB_ENV
+          else
+            echo "CHART_PATH=${DEFAULT_CHART}" >> $GITHUB_ENV
+          fi
+
       - name: Update Helm snapshots
         run: |
           set -euo pipefail
-          helm unittest "${{ inputs.chart }}" -u
+
+          if [[ -z "${CHART_PATH}" ]]; then
+            echo "ERROR: CHART_PATH is empty"
+            exit 1
+          fi
+
+          helm unittest "${CHART_PATH}" --update-snapshot
 
       - name: Verify snapshot changes only
         run: |
@@ -69,16 +85,19 @@ jobs:
 
       - name: Commit snapshot updates
         run: |
-            git config user.name "sentinelSre-bot"
-            git config user.email "sentinelSre-bot@users.noreply.github.com"
-    
-            git status --porcelain \
+          git config user.name "sentinelSre-bot"
+          git config user.email "sentinelSre-bot@users.noreply.github.com"
+
+          git status --porcelain \
             | awk '{print $2}' \
             | grep '__snapshot__/' \
             | xargs -r git add
-    
-            git commit -m "test(chart): update helm snapshots"
-  
+
+          git commit -m "test(chart): update helm snapshots" || {
+            echo "No snapshot changes to commit"
+            exit 0
+          }
+
       - name: Push snapshot commit
         run: |
           git push origin HEAD
