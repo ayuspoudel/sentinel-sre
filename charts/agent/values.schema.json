@@ -1,24 +1,44 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+
   "properties": {
     "namespace": {
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "create": { "type": "boolean" }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "create": {
+          "type": "boolean"
+        }
       },
-      "required": ["name", "create"]
+      "required": ["name", "create"],
+      "additionalProperties": false
     },
 
     "image": {
       "type": "object",
       "properties": {
-        "repository": { "type": "string" },
-        "tag": { "type": "string" },
-        "pullPolicy": { "type": "string" }
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": ["latest"]
+          }
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
       },
-      "required": ["repository", "tag", "pullPolicy"]
+      "required": ["repository", "tag", "pullPolicy"],
+      "additionalProperties": false
     },
 
     "replicaCount": {
@@ -31,10 +51,12 @@
       "properties": {
         "url": {
           "type": "string",
-           "minLength": 1
+          "minLength": 1,
+          "format": "uri"
         }
       },
-     "required": ["url"]
+      "required": ["url"],
+      "additionalProperties": false
     },
 
     "tls": {
@@ -45,7 +67,8 @@
           "minLength": 1
         }
       },
-      "required": ["secretName"]
+      "required": ["secretName"],
+      "additionalProperties": false
     },
 
     "webhook": {
@@ -61,7 +84,8 @@
           "maximum": 30
         }
       },
-      "required": ["failurePolicy", "timeoutSeconds"]
+      "required": ["failurePolicy", "timeoutSeconds"],
+      "additionalProperties": false
     },
 
     "selectors": {
@@ -70,22 +94,35 @@
         "namespaceLabel": {
           "type": "object",
           "properties": {
-            "key": { "type": "string" },
-            "value": { "type": "string" }
+            "key": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]+$"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["key", "value"]
+          "required": ["key", "value"],
+          "additionalProperties": false
         },
         "workloadLabel": {
           "type": "object",
           "properties": {
-            "key": { "type": "string" }
+            "key": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]+$"
+            }
           },
-          "required": ["key"]
+          "required": ["key"],
+          "additionalProperties": false
         }
       },
-      "required": ["namespaceLabel", "workloadLabel"]
+      "required": ["namespaceLabel", "workloadLabel"],
+      "additionalProperties": false
     }
   },
+
   "required": [
     "namespace",
     "image",
@@ -94,5 +131,7 @@
     "tls",
     "webhook",
     "selectors"
-  ]
+  ],
+
+  "additionalProperties": false
 }
