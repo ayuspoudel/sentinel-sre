@@ -2,6 +2,8 @@ package cluster
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -126,4 +128,51 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
+}
+
+func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "failed to parse form data", http.StatusBadRequest)
+		return
+	}
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	file, _, err := r.FormFile("kubeconfig")
+	if err != nil {
+		http.Error(w, "failed to get kubeconfig file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	kubeconfig, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "failed to read kubeconfig file", http.StatusInternalServerError)
+		return
+	}
+	secretName := fmt.Sprintf("sentinel-cluster-%s", name)
+	namespace := "sentinel"
+	kubeclient, err := NewKubeClient()
+	if err != nil {
+		http.Error(w, "failed to init kube client", http.StatusInternalServerError)
+		return
+	}
+	err = EnsureKubeconfigSecret(r.Context(), kubeclient, namespace, secretName, kubeconfig)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cluster := &Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{}}
+	if err := h.store.Create(r.Context(), cluster); err != nil {
+		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
