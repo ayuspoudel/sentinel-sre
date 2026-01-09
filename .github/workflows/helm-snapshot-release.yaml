@@ -19,7 +19,7 @@ on:
 
 env:
   HELM_UNITTEST_VERSION: v0.3.6
-
+  chart: "charts/agent"
 jobs:
   update-snapshots:
     runs-on: ubuntu-latest
