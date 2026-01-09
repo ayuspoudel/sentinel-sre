@@ -156,7 +156,8 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		http.Error(w, "failed to read kubeconfig file", http.StatusInternalServerError)
 		return
 	}
-	secretName := fmt.Sprintf("sentinel-cluster-%s", name)
+	safeName := ToDNS1123Name(name)
+	secretName := fmt.Sprintf("sentinel-cluster-%s", safeName)
 	namespace := "sentinel"
 	kubeclient, err := NewKubeClient()
 	if err != nil {
