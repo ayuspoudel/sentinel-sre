@@ -1,20 +1,16 @@
-# Default values for sentinel-agent
-# These values define the chart contract, not deployment state.
-
 namespace:
   name: sentinel
   create: true
 
 image:
   repository: ayuspoudel/sentinel-agent
-  tag: "0.0.0"              # placeholder, must be overridden
+  tag: "0.0.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
 
-
 sentinelSRE:
-  url: "https://example.invalid"   # placeholder, overridden in GitOps
+  url: "https://sentinel.example.com"
 
 tls:
   secretName: sentinel-agent-tls
@@ -22,10 +18,3 @@ tls:
 webhook:
   failurePolicy: Fail
   timeoutSeconds: 10
-
-selectors:
-  namespaceLabel:
-    key: sentinel.guard/enabled
-    value: true
-  workloadLabel:
-    key: sentinel.guard/name
