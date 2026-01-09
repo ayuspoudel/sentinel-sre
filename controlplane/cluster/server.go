@@ -19,7 +19,8 @@ func NewServer(addr string, handler *Handler) *Server {
 func (s *Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handler.Health)
-	mux.HandleFunc("/clusters", s.handler.Register)
+	mux.HandleFunc("/clusters/register", s.handler.Register)
+	mux.HandleFunc("/clusters/register-with-credentials", s.handler.RegisterWithCredentials)
 	mux.HandleFunc("/clusters/list", s.handler.List)
 	mux.HandleFunc("/clusters/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
