@@ -6,15 +6,18 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Controller struct {
-	registry *registryClient.Client
-	interval time.Duration
+	registry   *registryClient.Client
+	kubeClient *kubernetes.Clientset
+	store      Store
+	interval   time.Duration
 }
 
-func NewController(registry *registryClient.Client, interval time.Duration) *Controller {
-	return &Controller{registry: registry, interval: interval}
+func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clientset, store Store, interval time.Duration) *Controller {
+	return &Controller{registry: registry, kubeClient: kubeClient, store: store, interval: interval}
 }
 
 func (c *Controller) Run(ctx context.Context) {
