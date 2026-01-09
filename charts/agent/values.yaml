@@ -19,6 +19,6 @@ webhook:
 selectors:
   namespaceLabel:
     key: sentinel.guard/enabled
-    value: "true"
+    value: "true" 
   workloadLabel:
     key: sentinel.guard/name
