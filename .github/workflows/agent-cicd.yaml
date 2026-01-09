@@ -35,7 +35,7 @@ jobs:
 
     env:
       APP_NAME: sentinel-agent
-      VALUES_FILE: charts/agent/values.yaml
+      VALUES_FILE: deploy/values-agent/values.yaml
 
     steps:
       - name: Checkout (release)
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VALUES_FILE: charts/agent/values.yaml
+      VALUES_FILE: deploy/values-agent/values.yaml
 
     steps:
       - name: Checkout (gitops)
