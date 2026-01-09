@@ -1,15 +1,10 @@
 name: Helm Chart Tests
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - "charts/**"
-
-  pull_request:
-    paths:
-      - "charts/**"
+  workflow_run:
+    workflows: ["Helm Snapshot Update"]
+    types:
+      - completed
 
 env:
   CHARTS_DIR: charts

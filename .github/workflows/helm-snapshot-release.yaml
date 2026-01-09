@@ -1,12 +1,21 @@
-name: Helm Snapshot Update (Manual)
+name: Helm Snapshot Update
 
 on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "charts/**"
+  pull_request:
+    paths:
+      - "charts/**"
   workflow_dispatch:
     inputs:
       chart:
         description: "Chart directory (e.g. charts/agent)"
         required: true
         default: "charts/agent"
+    
 
 env:
   HELM_UNITTEST_VERSION: v0.3.6
