@@ -9,7 +9,7 @@ image:
   repository: ayuspoudel/sentinel-agent
   tag: "0.0.0"              # placeholder, must be overridden
   pullPolicy: IfNotPresent
-
+ 
 replicaCount: 1
 
 
