@@ -6,6 +6,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 /*
@@ -130,6 +133,24 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
+/*
+	@ayuspoudel
+	RegisgterWithCredentials handler allows users to register their cluster to sentinel
+	by providing path to a kubeconfig file in a API call.
+	It does two things it validates the kubeconfig:
+		- If multiple contexts are present in the cluster
+			- See if contextName was provided during API call
+				- If provided we check if that context exists in kubeconfig
+				- If not provided we check
+					- If clusterName from API call matches the contextName existing in kubeconfig
+					- If matches we use that context
+					- If not matches we throw error to user to provide contextName
+	Validation solves the edge case when users apply kubeconfigs with multiple cluster contexts
+	After validation it takes the kubeconfig and applies it as a secret into sentinel namespace
+	with secret name sentinel-cluster-{clusterName} (clusterName is saturated into k8s friendly
+	by our function in ./naming.go)
+*/
+
 func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -156,6 +177,34 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		http.Error(w, "failed to read kubeconfig file", http.StatusInternalServerError)
 		return
 	}
+
+	//	VALIDATION PHASE
+
+	cfg, err := clientcmd.Load(kubeconfig)
+	if err != nil {
+		http.Error(w, "invalid kubeconfig: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	contextName := r.FormValue("context")
+	if contextName == "" {
+		// If contextName is not provided we check if clusterName matches any context in kubeconfig
+		if len(cfg.Contexts) == 1 {
+			for k := range cfg.Contexts {
+				contextName = k
+				break
+			}
+		} else {
+			if _, ok := cfg.Contexts[name]; ok {
+				contextName = name
+			}
+		}
+	}
+	_, ok := cfg.Contexts[contextName]
+	if !ok {
+		http.Error(w, fmt.Sprintf("context %q not found in kubeconfig (avaliable: %v)", contextName, contextKeys(cfg.Contexts)), http.StatusBadRequest)
+		return
+	}
+	// We have validated the kubeconfig and contextName provided by user
 	safeName := ToDNS1123Name(name)
 	secretName := fmt.Sprintf("sentinel-cluster-%s", safeName)
 	namespace := "sentinel"
@@ -169,11 +218,24 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cluster := &Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{}}
+	cluster := &Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{"context": contextName}}
 	if err := h.store.Create(r.Context(), cluster); err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+/*
+@ayuspoudel
+This is a small helper function that converts a map of {contextName : *context}
+into a array of strings that only contain contextNames
+*/
+func contextKeys(m map[string]*clientcmdapi.Context) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
