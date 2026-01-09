@@ -1,20 +1,24 @@
+# Default values for sentinel-agent
+# These values define the chart contract, not deployment state.
+
 namespace:
   name: sentinel
   create: true
-
 image:
   repository: ayuspoudel/sentinel-agent
-  tag: "0.0.0"
+  tag: 0.0.0
   pullPolicy: IfNotPresent
-
 replicaCount: 1
-
 sentinelSRE:
-  url: "https://sentinel.example.com"
-
+  url: http://host.minikube.internal:8000
 tls:
   secretName: sentinel-agent-tls
-
 webhook:
   failurePolicy: Fail
-  timeoutSeconds: 10
+  timeoutSeconds: 5
+selectors:
+  namespaceLabel:
+    key: sentinel.guard/enabled
+    value: "true"
+  workloadLabel:
+    key: sentinel.guard/name
