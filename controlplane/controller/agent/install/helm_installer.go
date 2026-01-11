@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -48,27 +49,38 @@ func NewHelmInstaller(chart, repoUrl, repoName string) *HelmInstaller {
 */
 
 func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
+	log := logging.From(ctx)
+	log.Info("starting helm install", "release", AgentReleaseName, "namespace", AgentNamespace, "chart", h.repoName+"/"+h.chart)
+
 	// Creates a new helm runtime environment
 	// We need to set cluster, context for this
 	settings := cli.New()
+
 	// Creating a local kubeconfig file because helm does not accept in memory kubeconfig at runtime
 	tmp, err := os.CreateTemp("", "sentinel-kubeconfig-*")
 	if err != nil {
+		log.Error("failed to create temp kubeconfig file", "error", err)
 		return err
 	}
 	defer os.Remove(tmp.Name())
+
 	_, err = tmp.Write([]byte(cfg.KubeConfig))
 	if err != nil {
+		log.Error("failed to write kubeconfig to temp file", "error", err)
 		return err
 	}
+
 	// Setting cluster kubeconfig path and context name
 	settings.KubeConfig = tmp.Name()
 	settings.KubeContext = cfg.ContextName
+
 	// This creates a new core helm object that wires helm actions
 	actionCfg := new(action.Configuration)
+
 	// Initializing : Equiavalent to writing helm install ...
 	err = actionCfg.Init(settings.RESTClientGetter(), AgentNamespace, DefaultHelmDriver, func(format string, v ...interface{}) {})
 	if err != nil {
+		log.Error("failed to initialize helm action configuration", "error", err)
 		return err
 	}
 
@@ -86,18 +98,24 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	}
 
 	if !repoFileObj.Has(h.repoName) {
+		log.Info("adding helm repository", "repo", h.repoName, "url", h.repoUrl)
 		repoFileObj.Add(repoEntry)
 		if err := repoFileObj.WriteFile(repoFile, 0644); err != nil {
+			log.Error("failed to write helm repo file", "error", err)
 			return err
 		}
 	}
+
 	chartRepo, err := repo.NewChartRepository(repoEntry, getter.All(settings))
 	if err != nil {
+		log.Error("failed to create chart repository", "error", err)
 		return err
 	}
+
 	chartRepo.CachePath = repoCache
 	_, err = chartRepo.DownloadIndexFile()
 	if err != nil {
+		log.Error("failed to download helm repo index", "error", err)
 		return fmt.Errorf("failed to download repo index: %w", err)
 	}
 
@@ -110,22 +128,34 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	install.Timeout = 30 * time.Second
 
 	chartRef := fmt.Sprintf("%s/%s", h.repoName, h.chart)
+	log.Info("locating helm chart", "chart_ref", chartRef)
+
 	chartPath, err := install.LocateChart(chartRef, settings)
 	if err != nil {
+		log.Error("failed to locate helm chart", "error", err)
 		return err
 	}
+
 	// Now helm repo has been added this can locate the chart and prepare values for chart, identify templates and validate against schema
 	ch, err := loader.Load(chartPath)
 	if err != nil {
+		log.Error("failed to load helm chart", "error", err)
 		return err
 	}
+
 	// This step actually installs the chart
+	log.Info("running helm install")
+
 	_, err = install.RunWithContext(ctx, ch, cfg.Values)
 	if err != nil {
 		if strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
+			log.Warn("helm release already exists, skipping install")
 			return nil
 		}
+		log.Error("helm install failed", "error", err)
 		return fmt.Errorf("helm install failed: %w", err)
 	}
+
+	log.Info("helm install completed successfully")
 	return nil
 }
