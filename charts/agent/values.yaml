@@ -2,7 +2,6 @@
 # These values define the chart contract, not deployment state.
 
 namespace:
-  name: sentinel
   create: true
 image:
   repository: ayuspoudel/sentinel-agent

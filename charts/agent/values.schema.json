@@ -2,15 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "namespace": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "create": { "type": "boolean" }
-      },
-      "required": ["name", "create"]
-    },
-
     "image": {
       "type": "object",
       "properties": {
@@ -31,10 +22,10 @@
       "properties": {
         "url": {
           "type": "string",
-           "minLength": 1
+          "minLength": 1
         }
       },
-     "required": ["url"]
+      "required": ["url"]
     },
 
     "tls": {
@@ -87,7 +78,6 @@
     }
   },
   "required": [
-    "namespace",
     "image",
     "replicaCount",
     "sentinelSRE",

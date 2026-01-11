@@ -3,8 +3,9 @@ sentinel-agent
 {{- end }}
 
 {{- define "sentinel-agent.namespace" -}}
-{{ .Values.namespace.name }}
+{{ .Release.Namespace }}
 {{- end }}
+
 
 {{- define "sentinel-agent.labels" -}}
 app.kubernetes.io/name: sentinel-agent
