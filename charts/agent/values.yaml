@@ -1,8 +1,6 @@
 # Default values for sentinel-agent
 # These values define the chart contract, not deployment state.
 
-namespace:
-  create: true
 image:
   repository: ayuspoudel/sentinel-agent
   tag: 0.0.0
