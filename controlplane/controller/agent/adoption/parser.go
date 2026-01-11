@@ -1,29 +1,34 @@
 package adoption
 
 import (
-	"strings"
+	"bytes"
+	"io"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-func ParseManifests(manifest string) ([]runtime.Object, error) {
-	var objects []runtime.Object
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
+func ParseManifests(rendered []byte) ([]*unstructured.Unstructured, error) {
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(rendered), 4096)
+
+	var objects []*unstructured.Unstructured
 
 	for {
-		var raw runtime.RawExtension
-		if err := decoder.Decode(&raw); err != nil {
-			break
-		}
-		if len(raw.Raw) == 0 {
-			continue
-		}
-		obj, _, err := codecs.UniversalDeserializer().Decode(raw.Raw, nil, nil)
-		if err != nil {
+		var obj map[string]interface{}
+		if err := decoder.Decode(&obj); err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		objects = append(objects, obj)
+
+		if len(obj) == 0 {
+			continue
+		}
+
+		u := &unstructured.Unstructured{Object: obj}
+		objects = append(objects, u)
 	}
+
 	return objects, nil
 }
