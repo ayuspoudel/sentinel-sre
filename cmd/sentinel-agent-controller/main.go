@@ -8,7 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/controller"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/kube"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +28,7 @@ func main() {
 	defer cancel()
 
 	registry := registryClient.New(registryURL)
-	kubeClient, err := agent.NewKubeClient()
+	kubeClient, err := kube.NewKubeClient()
 	if err != nil {
 		log.Fatalf("failed to init kube client: %v", err)
 	}
@@ -33,19 +36,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect postgres: %v", err)
 	}
-	if err := agent.RunMigrations(ctx, db); err != nil {
+	if err := status.RunMigrations(ctx, db); err != nil {
 		log.Fatalf("db migrations failed: %v", err)
 	}
 
-	store := agent.NewStatusStore(db)
+	store := status.NewStatusStore(db)
 
-	installer := agent.NewHelmInstaller(
+	installer := install.NewHelmInstaller(
 		"sentinel-agent",
 		"https://ayuspoudel.github.io/sentinel-sre",
 		"sentinel-sre",
 	)
 
-	controller := agent.NewController(
+	controller := controller.NewController(
 		registry,
 		kubeClient,
 		store,
