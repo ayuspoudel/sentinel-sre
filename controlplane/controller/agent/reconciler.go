@@ -82,7 +82,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	status.APIServerVersion = &version.GitVersion
 	status.LastSuccessfulConnection = &now
 
-	installed, ns, err := detectAgentPrensence(ctx, targetClient)
+	installed, namespace, err := detectAgentPrensence(ctx, targetClient)
 	if err != nil {
 		errMsg := err.Error()
 		success := false
@@ -90,7 +90,28 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		status.LastReconcileSuccess = &success
 		log.Printf("[reconcile] cluster=%s failed to detect agent presence: %v", cl.Name, err)
 	}
+
+	if !installed {
+		log.Printf("[reconcile] cluster=%s agent not present, installing", cl.Name)
+		values := BuildAgentValues(c.controlPlaneUrl, cl.Name)
+		err := c.installer.Install(ctx, &InstallConfig{
+			KubeConfig:  kubeconfig,
+			ContextName: contextName,
+			Values:      values,
+		})
+		if err != nil {
+			errMsg := err.Error()
+			success := false
+			status.LastError = &errMsg
+			status.LastReconcileSuccess = &success
+			log.Printf("[reconcile] cluster=%s failed to install agent: %v", cl.Name, err)
+			return
+		}
+	}
+	success = true
 	status.AgentInstalled = &installed
-	status.AgentNamespace = ns
+	status.AgentNamespace = namespace
+	status.LastReconcileSuccess = &success
+	log.Printf("[reconcile] cluster=%s reconcile completed successfully", cl.Name)
 
 }
