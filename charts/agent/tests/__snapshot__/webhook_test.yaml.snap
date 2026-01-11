@@ -4,7 +4,7 @@ should match the webhook snapshot:
     kind: ValidatingWebhookConfiguration
     metadata:
       annotations:
-        cert-manager.io/inject-ca-from: sentinel/sentinel-agent-tls
+        cert-manager.io/inject-ca-from: NAMESPACE/sentinel-agent-tls
       name: sentinel-agent
     webhooks:
       - admissionReviewVersions:
@@ -12,7 +12,7 @@ should match the webhook snapshot:
         clientConfig:
           service:
             name: sentinel-agent
-            namespace: sentinel
+            namespace: NAMESPACE
             path: /validate
             port: 443
         failurePolicy: Fail
