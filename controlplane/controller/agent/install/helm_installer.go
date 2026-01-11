@@ -12,8 +12,6 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type HelmInstaller struct {
@@ -130,50 +128,4 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 		return fmt.Errorf("helm install failed: %w", err)
 	}
 	return nil
-}
-
-// This function checks if any adoption of existing rbac roles are needed
-func needsAdoption(ctx context.Context, client *kubernetes.Clientset) (bool, error) {
-	cr, err := client.RbacV1().ClusterRoles().Get(ctx, AgentDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		// If it doesn't exist, nothing to adopt
-		return false, nil
-	}
-	// Check managed-by label
-	if cr.Labels["app.kubernetes.io/managed-by"] != "Helm" {
-		return true, nil
-	}
-	// Check release name annotation
-	if cr.Annotations["meta.helm.sh/release-name"] != AgentReleaseName {
-		return true, nil
-	}
-	// Check release namespace annotation
-	if cr.Annotations["meta.helm.sh/release-namespace"] != AgentNamespace {
-		return true, nil
-	}
-	return false, nil
-}
-
-/*
-This function checks if RBAC is already present, if so it will update to transfer ownership to helm
-*/
-func adoptClusterRole(ctx context.Context, client *kubernetes.Clientset) error {
-	cr, err := client.RbacV1().ClusterRoles().Get(ctx, "sentinel-agent", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if cr.Labels == nil {
-		cr.Labels = map[string]string{}
-	}
-	if cr.Annotations == nil {
-		cr.Annotations = map[string]string{}
-	}
-
-	cr.Labels["app.kubernetes.io/managed-by"] = "Helm"
-	cr.Annotations["meta.helm.sh/release-name"] = AgentReleaseName
-	cr.Annotations["meta.helm.sh/release-namespace"] = AgentNamespace
-
-	_, err = client.RbacV1().ClusterRoles().Update(ctx, cr, metav1.UpdateOptions{})
-	return err
 }
