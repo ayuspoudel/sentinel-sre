@@ -12,9 +12,9 @@ import (
 )
 
 func main() {
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := os.Getenv("REGISTRY_DB_URL")
 	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
+		log.Fatal("REGISTRY_DB_URL is required")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
