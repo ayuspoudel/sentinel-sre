@@ -27,7 +27,7 @@ func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clien
 func (c *Controller) Run(ctx context.Context) {
 	ctx = logging.With(ctx, "component", "agent-controller")
 	log := logging.From(ctx)
-	log.Info("controller started", "interval", c.interval.String)
+	log.Info("controller started", "interval", c.interval.String())
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	for {
@@ -45,7 +45,7 @@ func (c *Controller) reconcileOnce(ctx context.Context) {
 	log := logging.From(ctx)
 	clusters, err := c.registry.ListClusters(ctx)
 	if err != nil {
-		log.Error("error listing clusters: %v", err)
+		log.Error("error listing clusters: %v", err.Error())
 		return
 	}
 	for _, cluster := range clusters {
