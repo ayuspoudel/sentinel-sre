@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -34,7 +35,7 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	settings.KubeConfig = tmp.Name()
 	settings.KubeContext = cfg.ContextName
 	actionCfg := new(action.Configuration)
-	err = actionCfg.Init(settings.RESTClientGetter(), AgentNamespace, os.Getenv("HELM_DRIVER"), func(format string, v ...interface{}) {})
+	err = actionCfg.Init(settings.RESTClientGetter(), AgentNamespace, DefaultHelmDriver, func(format string, v ...interface{}) {})
 	if err != nil {
 		return err
 	}
@@ -51,14 +52,12 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	if err != nil {
 		return err
 	}
-	_, err = install.RunWithContext(ctx, ch, map[string]interface{}{"sentinelSRE": map[string]interface{}{"url": "http://sentinel-control-plane"}})
+	_, err = install.RunWithContext(ctx, ch, cfg.Values)
 	if err != nil {
-		if action.IsReleaseAlreadyInstalled(err) {
+		if strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
 			return nil
 		}
 		return fmt.Errorf("helm install failed: %w", err)
 	}
-
 	return nil
-
 }
