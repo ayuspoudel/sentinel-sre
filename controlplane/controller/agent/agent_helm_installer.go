@@ -70,11 +70,6 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	if err != nil {
 		return err
 	}
-	// At this point we are preparing command for helm install
-	install := action.NewInstall(actionCfg)
-	install.ReleaseName = AgentReleaseName
-	install.Namespace = AgentNamespace
-	install.CreateNamespace = true
 
 	// We need to do helm repo add sentinel-sre <link> before we perform the actual installation
 	repoFile := settings.RepositoryConfig
@@ -105,11 +100,17 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 		return fmt.Errorf("failed to download repo index: %w", err)
 	}
 
-	// Now helm repo has been added this can locate the chart and prepare values for chart, identify templates and validate against schema
-	chartPath, err := install.LocateChart(h.chart, cli.New())
+	// At this point we are preparing command for helm install
+	install := action.NewInstall(actionCfg)
+	install.ReleaseName = AgentReleaseName
+	install.Namespace = AgentNamespace
+	install.CreateNamespace = true
+	chartRef := fmt.Sprintf("%s/%s", h.repoName, h.chart)
+	chartPath, err := install.LocateChart(chartRef, settings)
 	if err != nil {
 		return err
 	}
+	// Now helm repo has been added this can locate the chart and prepare values for chart, identify templates and validate against schema
 	ch, err := loader.Load(chartPath)
 	if err != nil {
 		return err
