@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/adoption"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/kube"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/presence"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/values"
@@ -17,15 +17,21 @@ import (
 )
 
 func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cluster) {
+	log := logging.From(ctx)
 	start := time.Now()
-	log.Printf("[reconcile] cluster=%s credential_ref=%s labels=%v", cl.Name, cl.CredentialRef, cl.Labels)
 	status := &status.ClusterStatus{ClusterName: cl.Name, LastReconcileAt: &start}
+	defer func() {
+		duration := int(time.Since(start).Milliseconds())
+		log.Info("reconcile completed", "duration_ms", duration, "success", status.LastReconcileSuccess)
+	}()
+
+	log.Info("reconcile started", "labels", cl.Labels)
 	defer func() {
 		duration := int(time.Since(start).Milliseconds())
 		status.LastReconcileDurationMs = &duration
 		err := c.store.Upsert(ctx, status)
 		if err != nil {
-			log.Printf("[reconcile] cluster=%s failed to upsert status (last reconcile duration upsert failed): %v", cl.Name, err)
+			log.Error("failed to upsert cluster status", "error", err)
 		}
 	}()
 
@@ -35,34 +41,37 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		status.LastError = &errMsg
 		success := false
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s missing context label, skipping", cl.Name)
+		log.Warn("missing context label, skipping reconcile", "required_label", "context")
 		return
 	}
+
 	kubeconfig, err := kube.LoadKubeConfig(ctx, c.kubeClient, "sentinel", cl.CredentialRef)
 	if err != nil {
 		errMsg := err.Error()
 		status.LastError = &errMsg
 		success := false
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s failed to load kubeconfig: %v", cl.Name, err)
+		log.Error("failed to load kubeconfig", "namespace", "sentinel", "secret", cl.CredentialRef, "error", err)
 		return
 	}
+
 	restCfg, err := kube.BuildRestConfig(kubeconfig, contextName)
 	if err != nil {
 		errMsg := err.Error()
 		success := false
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s failed to build rest config: %v", cl.Name, err)
+		log.Error("failed to build rest config", "context", contextName, "error", err)
 		return
 	}
+
 	targetClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		errMsg := err.Error()
 		success := false
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s failed to create kubernetes client: %v", cl.Name, err)
+		log.Error("failed to create kubernetes client", "error", err)
 		return
 	}
 
@@ -71,10 +80,10 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		reachable := false
 		success := false
 		errMsg := err.Error()
-
 		status.Reachable = &reachable
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
+		log.Error("failed to connect to api server", "error", err)
 		return
 	}
 
@@ -89,25 +98,28 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	status.APIServerVersion = &version.GitVersion
 	status.LastSuccessfulConnection = &now
 
-	installed, namespace, err := presence.DetectAgentPrensence(ctx, targetClient)
+	log.Info("connected to api server", "version", version.GitVersion)
+
+	installed, err := presence.DetectAgentPrensence(ctx, install.AgentNamespace, targetClient)
 	if err != nil {
 		errMsg := err.Error()
 		success := false
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s failed to detect agent presence: %v", cl.Name, err)
+		log.Error("failed to detect agent presence", "error", err)
 		return
 	}
 
 	if !installed {
-		log.Printf("[reconcile] cluster=%s agent not present, installing", cl.Name)
+		log.Info("agent not present, installing")
+
 		dynClient, err := dynamic.NewForConfig(restCfg)
 		if err != nil {
 			errMsg := err.Error()
 			success := false
 			status.LastError = &errMsg
 			status.LastReconcileSuccess = &success
-			log.Printf("[reconcile] cluster=%s failed to create dynamic client: %v", cl.Name, err)
+			log.Error("failed to create dynamic client", "error", err)
 			return
 		}
 
@@ -124,56 +136,57 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			success := false
 			status.LastError = &errMsg
 			status.LastReconcileSuccess = &success
-			log.Printf("[reconcile] cluster=%s failed to render helm manifests: %v", cl.Name, err)
+			log.Error("failed to render helm manifests", "error", err)
 			return
 		}
 
 		objects, err := adoption.ParseManifests([]byte(manifest))
-
 		if err != nil {
 			errMsg := err.Error()
 			success := false
 			status.LastError = &errMsg
 			status.LastReconcileSuccess = &success
-			log.Printf("[reconcile] cluster=%s failed to parse helm manifests: %v", cl.Name, err)
+			log.Error("failed to parse helm manifests", "error", err)
 			return
 		}
 
 		for _, obj := range objects {
 			err := adoption.Adopt(ctx, dynClient, obj, adoption.Ownership{
-				ReleaseName:      install.AgentReleaseName,
-				ReleaseNamespace: install.AgentNamespace,
+				ReleaseName: install.AgentReleaseName, ReleaseNamespace: install.AgentNamespace,
 			})
 			if err != nil {
 				errMsg := err.Error()
 				success := false
 				status.LastError = &errMsg
 				status.LastReconcileSuccess = &success
-				log.Printf("[reconcile] cluster=%s failed to adopt resource: %v", cl.Name, err)
+				log.Error("failed to adopt resource", "error", err)
 				return
 			}
 		}
 
 		values := values.BuildAgentValues(c.controlPlaneUrl, cl.Name)
 		err = c.installer.Install(ctx, &install.InstallConfig{
-			KubeConfig:  kubeconfig,
-			ContextName: contextName,
-			Values:      values,
+			KubeConfig: kubeconfig, ContextName: contextName, Values: values,
 		})
 		if err != nil {
 			errMsg := err.Error()
 			success := false
 			status.LastError = &errMsg
 			status.LastReconcileSuccess = &success
-			log.Printf("[reconcile] cluster=%s failed to install agent: %v", cl.Name, err)
+			log.Error("failed to install agent", "error", err)
 			return
 		}
 	}
-	success = true
-	installed = true
-	status.AgentInstalled = &installed
-	status.AgentNamespace = namespace
-	status.LastReconcileSuccess = &success
-	log.Printf("[reconcile] cluster=%s reconcile completed successfully", cl.Name)
 
+	if installed {
+		status.AgentInstalled = ptr(true)
+		status.AgentNamespace = ptr(install.AgentNamespace)
+	}
+
+	status.LastReconcileSuccess = ptr(true)
+	log.Info("reconcile finished successfully")
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
