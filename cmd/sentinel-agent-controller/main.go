@@ -42,6 +42,7 @@ func main() {
 	installer := agent.NewHelmInstaller(
 		"sentinel-agent",
 		"https://ayuspoudel.github.io/sentinel-sre",
+		"sentinel-sre",
 	)
 
 	controller := agent.NewController(
