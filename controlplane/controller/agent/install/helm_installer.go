@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -107,6 +108,9 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	install.ReleaseName = AgentReleaseName
 	install.Namespace = AgentNamespace
 	install.CreateNamespace = true
+	install.Wait = false
+	install.Timeout = 30 * time.Second
+
 	chartRef := fmt.Sprintf("%s/%s", h.repoName, h.chart)
 	chartPath, err := install.LocateChart(chartRef, settings)
 	if err != nil {
