@@ -45,7 +45,8 @@ func (c *Controller) reconcileOnce(ctx context.Context) {
 	log := logging.From(ctx)
 	clusters, err := c.registry.ListClusters(ctx)
 	if err != nil {
-		log.Error("error listing clusters: %v", err.Error())
+		log.Error("error listing clusters", "error", err.Error())
+
 		return
 	}
 	for _, cluster := range clusters {
