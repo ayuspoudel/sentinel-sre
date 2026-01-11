@@ -21,7 +21,20 @@ func EnsureKubeconfigSecret(ctx context.Context, client *kubernetes.Clientset, n
 			"kubeconfig": kubeconfig,
 		},
 	}
-	_, err := client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+	_, err := client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}, metav1.CreateOptions{})
+		}
+		if err != nil {
+			return fmt.Errorf("failed to ensure namespace for kubeconfig secret: %w", err)
+		}
+	}
+	_, err = client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			_, updateErr := client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
