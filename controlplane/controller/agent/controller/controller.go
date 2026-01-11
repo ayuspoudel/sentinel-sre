@@ -2,10 +2,10 @@ package controller
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
 	"k8s.io/client-go/kubernetes"
@@ -25,12 +25,15 @@ func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clien
 }
 
 func (c *Controller) Run(ctx context.Context) {
+	ctx = logging.With(ctx, "component", "agent-controller")
+	log := logging.From(ctx)
+	log.Info("controller started", "interval", c.interval.String)
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("sentinel agent controller stopping")
+			log.Info("controller stopping")
 			return
 		case <-ticker.C:
 			c.reconcileOnce(ctx)
@@ -39,13 +42,14 @@ func (c *Controller) Run(ctx context.Context) {
 }
 
 func (c *Controller) reconcileOnce(ctx context.Context) {
+	log := logging.From(ctx)
 	clusters, err := c.registry.ListClusters(ctx)
 	if err != nil {
-		log.Printf("error listing clusters: %v", err)
+		log.Error("error listing clusters: %v", err)
 		return
 	}
 	for _, cluster := range clusters {
-		log.Printf("reconciling cluster: %s", cluster.Name)
-		c.reconcileCluster(ctx, cluster)
+		clusterCtx := logging.With(ctx, "cluster", cluster.Name, "credential_ref", cluster.CredentialRef)
+		c.reconcileCluster(clusterCtx, cluster)
 	}
 }
