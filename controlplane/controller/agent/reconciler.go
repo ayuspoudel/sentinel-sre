@@ -89,10 +89,32 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
 		log.Printf("[reconcile] cluster=%s failed to detect agent presence: %v", cl.Name, err)
+		return
 	}
 
 	if !installed {
 		log.Printf("[reconcile] cluster=%s agent not present, installing", cl.Name)
+		needs, adoptionErr := needsAdoption(ctx, targetClient)
+		if needs {
+			log.Printf("[reconcile] cluster=%s adopting existing agent installation", cl.Name)
+			err := adoptClusterRole(ctx, targetClient)
+			if err != nil {
+				errMsg := err.Error()
+				success := false
+				status.LastError = &errMsg
+				status.LastReconcileSuccess = &success
+				log.Printf("[reconcile] cluster=%s failed to adopt existing agent installation: %v", cl.Name, err)
+				return
+			}
+		}
+		if adoptionErr != nil {
+			errMsg := adoptionErr.Error()
+			success := false
+			status.LastError = &errMsg
+			status.LastReconcileSuccess = &success
+			log.Printf("[reconcile] cluster=%s failed to check adoption need: %v", cl.Name, adoptionErr)
+			return
+		}
 		values := BuildAgentValues(c.controlPlaneUrl, cl.Name)
 		err := c.installer.Install(ctx, &InstallConfig{
 			KubeConfig:  kubeconfig,
