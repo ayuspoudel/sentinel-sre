@@ -33,7 +33,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	}
 	kubeconfig, err := c.loadKubeConfig(ctx, "sentinel", cl.CredentialRef)
 	if err != nil {
-		errMsg := "missing context label"
+		errMsg := err.Error()
 		status.LastError = &errMsg
 		success := false
 		status.LastReconcileSuccess = &success
@@ -62,14 +62,35 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	version, err := targetClient.Discovery().ServerVersion()
 	if err != nil {
 		reachable := false
-		errMsg := err.Error()
 		success := false
+		errMsg := err.Error()
+
 		status.Reachable = &reachable
 		status.LastError = &errMsg
 		status.LastReconcileSuccess = &success
-		log.Printf("[reconcile] cluster=%s failed to get server version: %v", cl.Name, err)
 		return
 	}
-	log.Printf("[reconcile] cluster=%s server version: %s", cl.Name, version.GitVersion)
+
+	reachable := true
+	authValid := true
+	success := true
+	now := time.Now()
+
+	status.Reachable = &reachable
+	status.AuthValid = &authValid
+	status.LastReconcileSuccess = &success
+	status.APIServerVersion = &version.GitVersion
+	status.LastSuccessfulConnection = &now
+
+	installed, ns, err := detectAgentPrensence(ctx, targetClient)
+	if err != nil {
+		errMsg := err.Error()
+		success := false
+		status.LastError = &errMsg
+		status.LastReconcileSuccess = &success
+		log.Printf("[reconcile] cluster=%s failed to detect agent presence: %v", cl.Name, err)
+	}
+	status.AgentInstalled = &installed
+	status.AgentNamespace = ns
 
 }
