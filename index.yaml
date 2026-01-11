@@ -3,7 +3,7 @@ entries:
   sentinel-agent:
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-09T21:24:54.176013571Z"
+    created: "2026-01-11T19:43:40.085433534Z"
     description: Sentinel SRE admission controller agent
     digest: d23a35131c0c1b2f020fef5cb212aaab1ed151b7ce7b9908ea9cb34bb064fcf5
     name: sentinel-agent
@@ -13,9 +13,9 @@ entries:
     version: 1.0.6
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-09T21:24:54.175678555Z"
+    created: "2026-01-11T19:43:40.085168001Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
-    digest: 193bfdc069adc99bb80d5af4b87aaa204389315f5e3677b3cdda5b8348372d22
+    digest: c60cbaea8f27c37d609e740060e3579c3e1763e67bd614136b1cd6e8c049371e
     name: sentinel-agent
     type: application
     urls:
@@ -23,7 +23,7 @@ entries:
     version: 1.0.4
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-09T21:24:54.175356803Z"
+    created: "2026-01-11T19:43:40.084863345Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 372ab2f39a998bda8bd79dd6e21ef416963bbdd3a822b87d85dcbba358f22d95
     name: sentinel-agent
@@ -33,7 +33,7 @@ entries:
     version: 1.0.3
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-09T21:24:54.175038188Z"
+    created: "2026-01-11T19:43:40.084561595Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 129b33df9a161aa357d041404140c0575edc79988af441895ce4eff525061d72
     name: sentinel-agent
@@ -43,7 +43,7 @@ entries:
     version: 1.0.2
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-09T21:24:54.174691861Z"
+    created: "2026-01-11T19:43:40.084117149Z"
     description: Sentinel SRE admission controller agent
     digest: 8885cca5b32c13b78e2a02746621b639fce8762510a7b8ea7a0e395610133e4f
     name: sentinel-agent
@@ -51,4 +51,4 @@ entries:
     urls:
     - https://ayuspoudel.github.io/sentinel-sre/sentinel-agent-1.0.1.tgz
     version: 1.0.1
-generated: "2026-01-09T21:24:54.174246038Z"
+generated: "2026-01-11T19:43:40.083694454Z"
