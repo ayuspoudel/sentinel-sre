@@ -116,7 +116,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			kubeconfig,
 			contextName,
 			install.AgentNamespace,
-			install.AgentReleaseName+"/"+install.AgentDeploymentName,
+			install.AgentHelmRepo+"/"+install.AgentDeploymentName,
 			values.BuildAgentValues(c.controlPlaneUrl, cl.Name),
 		)
 		if err != nil {
@@ -128,7 +128,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			return
 		}
 
-		objects, err := adoption.ParseManifests(manifest)
+		objects, err := adoption.ParseManifests([]byte(manifest))
+
 		if err != nil {
 			errMsg := err.Error()
 			success := false
