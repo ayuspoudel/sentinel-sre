@@ -10,14 +10,16 @@ import (
 )
 
 type Controller struct {
-	registry   *registryClient.Client
-	kubeClient *kubernetes.Clientset
-	store      Store
-	interval   time.Duration
+	registry        *registryClient.Client
+	kubeClient      *kubernetes.Clientset
+	store           Store
+	interval        time.Duration
+	controlPlaneUrl string
+	installer       Installer
 }
 
-func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clientset, store Store, interval time.Duration) *Controller {
-	return &Controller{registry: registry, kubeClient: kubeClient, store: store, interval: interval}
+func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clientset, store Store, interval time.Duration, controlPlaneUrl string, installer Installer) *Controller {
+	return &Controller{registry: registry, kubeClient: kubeClient, store: store, interval: interval, controlPlaneUrl: controlPlaneUrl, installer: installer}
 }
 
 func (c *Controller) Run(ctx context.Context) {
