@@ -3,7 +3,17 @@ entries:
   sentinel-agent:
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.574342276Z"
+    created: "2026-01-11T23:10:26.43027595Z"
+    description: Sentinel SRE admission controller agent runs on eks cluster
+    digest: 05d31b671e3d8e8fffe9e7f94b82d418a00413c17a872dca9d6ebc76311345c0
+    name: sentinel-agent
+    type: application
+    urls:
+    - https://ayuspoudel.github.io/sentinel-sre/sentinel-agent-1.1.3.tgz
+    version: 1.1.3
+  - apiVersion: v2
+    appVersion: v1
+    created: "2026-01-11T23:10:26.429993353Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 353ec5d5ca58b64ae04d5be368bc733b1f46685a82de1209d13e5c402e8c2143
     name: sentinel-agent
@@ -13,7 +23,7 @@ entries:
     version: 1.1.2
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.574089345Z"
+    created: "2026-01-11T23:10:26.429736233Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: b928472ac37f6d07cadac0d58be77d2b29b1714f491344659566af2c0cf4e61c
     name: sentinel-agent
@@ -23,7 +33,7 @@ entries:
     version: 1.1.1
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.57383918Z"
+    created: "2026-01-11T23:10:26.429482168Z"
     description: Sentinel SRE admission controller agent
     digest: d23a35131c0c1b2f020fef5cb212aaab1ed151b7ce7b9908ea9cb34bb064fcf5
     name: sentinel-agent
@@ -33,7 +43,7 @@ entries:
     version: 1.0.6
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.57358684Z"
+    created: "2026-01-11T23:10:26.429213477Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 6ebe74104f5d8cc7d6eef416dfa27e3ce17f7f8a7e570bdc1c9cd1ba0ab9a8c7
     name: sentinel-agent
@@ -43,7 +53,7 @@ entries:
     version: 1.0.4
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.573282414Z"
+    created: "2026-01-11T23:10:26.428931922Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 372ab2f39a998bda8bd79dd6e21ef416963bbdd3a822b87d85dcbba358f22d95
     name: sentinel-agent
@@ -53,7 +63,7 @@ entries:
     version: 1.0.3
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.572999037Z"
+    created: "2026-01-11T23:10:26.428655967Z"
     description: Sentinel SRE admission controller agent runs on eks cluster
     digest: 129b33df9a161aa357d041404140c0575edc79988af441895ce4eff525061d72
     name: sentinel-agent
@@ -63,7 +73,7 @@ entries:
     version: 1.0.2
   - apiVersion: v2
     appVersion: v1
-    created: "2026-01-11T23:06:47.572711772Z"
+    created: "2026-01-11T23:10:26.428348713Z"
     description: Sentinel SRE admission controller agent
     digest: 8885cca5b32c13b78e2a02746621b639fce8762510a7b8ea7a0e395610133e4f
     name: sentinel-agent
@@ -71,4 +81,4 @@ entries:
     urls:
     - https://ayuspoudel.github.io/sentinel-sre/sentinel-agent-1.0.1.tgz
     version: 1.0.1
-generated: "2026-01-11T23:06:47.57227529Z"
+generated: "2026-01-11T23:10:26.427900948Z"
