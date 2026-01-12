@@ -1,60 +1,42 @@
+# Policy Registry Service
+
+The Policy Registry Service is responsible for managing and storing policies that govern the behavior of the control plane. It provides a centralized repository for policy definitions, allowing for easy retrieval, updates, and enforcement across different components of the system.
+
+### Architecture
+
+This follows a hexagonal architecture design pattern with implicit interface satisfation. 
+The layers of design are
+
+**Root**: Storage/ Persistence - `./store`
+
+- It provides methods to persist, read and write data. Can be accessed using PolicyStore Interface.
+
+**Level 1**: Specifications - `./spec`
+
+- This defines what user input must have, how it will be read by policy registry, how other functions can access it. 
+- It provides PolicySpec Interface. And also a validation() method.
+
+**Core Level**: Service - `./service`
+- This is the core business logic of policy registry. It provides methods to create, read, update, delete policies.
+- It uses PolicyStore and PolicySpec interfaces to perform its operations.
+
+**Adapter Layer**: Adapters - `./adapters`
+
+- This layer contains implementations of the interfaces defined in the core and lower layers. Things like reading from other controller's db, other registry's db and quick validation. Any external agent this service talks to is defined here.
+
+**API Layer**: API - `./api`
+
+- This layer exposes the functionality of the policy registry service via RESTful APIs.
+- Methods are:
+    * /health
+    * PUT /v1/policies/{name}
+    * GET /v1/policies/{name}/status
+    * DELETE /v1/policies/{name}
 
 
-# Sentinel Policy Registry API
+### API Documentation
 
-## Overview
-
-The Policy Registry is an intent ingestion service for Sentinel SRE.
-
-It stores what Sentinel should monitor and enforce, not how decisions are made.
-It is designed to be consumed by Terraform, not humans.
-
-This service:
-
-* validates policy intent
-* validates environment readiness (best-effort)
-* persists policy spec and derived status
-* exposes a read-only surface for decision systems
-
-It does not evaluate policies.
-
-
-
-## Core Concepts
-
-### Policy Spec (Intent)
-
-A policy describes:
-
-* what workload Sentinel should watch
-* which signals define health
-* what SLO and error-budget rules apply
-
-Policy spec is:
-
-* declarative
-* idempotent
-* replace-on-write
-
-### Policy Status (Observed)
-
-Policy status describes:
-
-* whether the environment is ready
-* whether Sentinel can evaluate this policy
-* why enforcement may be degraded
-
-Status is:
-
-* derived
-* never user-authored
-* non-blocking
-
-
-
-## API Endpoints
-
-### Health
+#### Health
 
 ```
 GET /health
@@ -71,7 +53,7 @@ ok
 
 
 
-### Apply Policy (Create / Update)
+#### Apply Policy (Create / Update)
 
 ```
 PUT /v1/policies/{name}
@@ -79,11 +61,7 @@ PUT /v1/policies/{name}
 
 Creates or replaces a policy.
 
-* Idempotent
-* Full replace semantics
-* Used by Terraform `apply`
-
-Request Body
+**Request Body**
 
 ```json
 {
@@ -140,7 +118,7 @@ Notes
 
 
 
-### Get Policy
+#### Get Policy
 
 ```
 GET /v1/policies/{name}
@@ -156,7 +134,7 @@ Response
 
 
 
-### List Policies
+#### List Policies
 
 ```
 GET /v1/policies
@@ -219,26 +197,3 @@ Response
 ```
 204 No Content
 ```
-
-Used by Terraform `destroy`.
-
-
-
-## Validation Model
-
-Validation is split intentionally:
-
-### Hard validation (blocks apply)
-
-* policy spec structure
-* SLO and budget semantics
-* PromQL syntax
-* cluster existence
-
-### Soft validation (status only)
-
-* namespace existence
-* cluster reachability
-* agent health
-* Prometheus reachability
-
