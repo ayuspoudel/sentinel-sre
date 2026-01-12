@@ -2,7 +2,7 @@
 
 The Policy Registry Service is responsible for managing and storing policies that govern the behavior of the control plane. It provides a centralized repository for policy definitions, allowing for easy retrieval, updates, and enforcement across different components of the system.
 
-## Architecture
+# Architecture
 
 
 This follows a hexagonal architecture design pattern with implicit interface satisfation. 
@@ -36,9 +36,9 @@ The layers of design are
     * DELETE /v1/policies/{name}
 
 
-### API Documentation
+# API Documentation
 
-#### Health
+### Health
 ---
 ```
 GET /health
@@ -55,7 +55,7 @@ ok
 
 
 
-#### Apply Policy (Create / Update)
+### Apply Policy (Create / Update)
 ---
 ```
 PUT /v1/policies/{name}
@@ -112,7 +112,7 @@ Creates or replaces a policy.
 }
 ```
 
-#### Get Policy
+### Get Policy
 ---
 ```
 GET /v1/policies/{name}
@@ -128,7 +128,7 @@ Returns the stored policy spec.
 
 
 
-#### List Policies
+### List Policies
 ---
 ```
 GET /v1/policies
