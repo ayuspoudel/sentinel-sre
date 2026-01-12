@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -17,15 +18,18 @@ type Payload struct {
 	Timestamp    time.Time `json:"timestamp"`
 }
 
-func Send(ctx context.Context, controllerURL, agentId, clusterName, agentVersion string) error {
+func Send(ctx context.Context, controllerURL, agentID, clusterName, agentVersion string) error {
 	log := logging.From(ctx)
 
-	body, _ := json.Marshal(Payload{
-		AgentID:      agentId,
+	body, err := json.Marshal(Payload{
+		AgentID:      agentID,
 		ClusterName:  clusterName,
 		AgentVersion: agentVersion,
 		Timestamp:    time.Now().UTC(),
 	})
+	if err != nil {
+		return err
+	}
 
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -34,16 +38,20 @@ func Send(ctx context.Context, controllerURL, agentId, clusterName, agentVersion
 		bytes.NewBuffer(body),
 	)
 	if err != nil {
-		log.Warn("heartbeat request build failed", "error", err)
 		return err
 	}
 
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Warn("heartbeat failed", "error", err)
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("heartbeat rejected: status=%d", resp.StatusCode)
+	}
 
 	log.Info("heartbeat sent", "status", resp.StatusCode)
 	return nil
