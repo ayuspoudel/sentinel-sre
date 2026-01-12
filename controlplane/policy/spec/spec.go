@@ -1,5 +1,40 @@
 package spec
 
+/*
+	Author: @ayuspoudel
+	This file is the base of policy registry. It defines what we accept as policy.
+	Policy Spec is the root object the whole thing looks like
+		PolicySpec
+			Metadata (Defined in Metadata struct, received as "metadata")
+				|- Name          string
+				|- Owner         string
+				|- Environment   string
+
+			Target (Defined in Target struct, received as "target")
+				|- Cluster       string
+				|- Namespace     string
+				|- Service       string
+
+			Signals (Defined in Signals struct, received as "signals")
+				|- Traffic (TrafficSignal)
+					|- Query     string
+					|- MinRPS    float64
+				|- Errors (ErrorSignal)
+					|- Query     string
+				|- SLO (SLO)
+					|- Objective float64
+					|- Window    string
+
+			Policy (Defined in Policy struct, received as "policy")
+				|- Budget (BudgetPolicy)
+					|- FastBurn (BurnWindow)
+						|- Window    string
+						|- Threshold float64
+					|- SlowBurn (BurnWindow)
+						|- Window    string
+						|- Threshold float64
+*/
+
 type PolicySpec struct {
 	Metadata Metadata `json:"metadata" yaml:"metadata"`
 	Target   Target   `json:"target" yaml:"target"`
