@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/controller"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/heartbeat"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/kube"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
@@ -56,6 +57,22 @@ func main() {
 		controlPlaneURL,
 		installer,
 	)
+
+	heartbeatAddr := os.Getenv("HEARTBEAT_BIND_ADDR")
+	if heartbeatAddr == "" {
+		heartbeatAddr = ":9000"
+	}
+
+	heartbeatServer := heartbeat.NewServer(
+		heartbeatAddr,
+		store,
+	)
+
+	go func() {
+		if err := heartbeatServer.Start(ctx); err != nil {
+			log.Printf("heartbeat server exited: %v", err)
+		}
+	}()
 
 	go controller.Run(ctx)
 
