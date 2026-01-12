@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// This file is a sanity check for all fields
+
 func Validate(p *PolicySpec) error {
 	if p.Metadata.Name == "" {
 		return fmt.Errorf("metadata.name is required")
@@ -36,8 +38,6 @@ func Validate(p *PolicySpec) error {
 		return fmt.Errorf("fast burn threshold must be greater than slow burn threshold")
 	}
 
-	// duration parsing
-
 	sloWindow, err := time.ParseDuration(p.Signals.SLO.Window)
 	if err != nil {
 		return fmt.Errorf("signals.slo.window is invalid: %w", err)
@@ -52,8 +52,6 @@ func Validate(p *PolicySpec) error {
 	if err != nil {
 		return fmt.Errorf("policy.budget.slowBurn.window is invalid: %w", err)
 	}
-
-	// ordering rules
 
 	if fastWindow >= slowWindow {
 		return fmt.Errorf("fast burn window must be smaller than slow burn window")
