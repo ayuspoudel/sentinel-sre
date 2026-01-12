@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+/*
+	Author: @ayuspoudel
+	This is a prometheus adaptor which will be used to query prometheus endpoint based on baseUrl
+	It simply allows us to call Query(ctx, sum[http...]) so we can check if prometheus is reachable.
+	Or this can be even used to validate the queries given by users via policy input.
+	This does not talk to prometheus, it is only here for validation
+*/
+
 type PrometheusAdapter struct {
 	baseURL string
 	client  *http.Client
