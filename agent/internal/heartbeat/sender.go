@@ -11,9 +11,9 @@ import (
 )
 
 type Payload struct {
-	Cluster      string    `json:"cluster"`
-	AgentId      string    `json:"agentId"`
-	AgentVersion string    `json:"agentVersion"`
+	AgentID      string    `json:"agent_id"`
+	ClusterName  string    `json:"cluster_name"`
+	AgentVersion string    `json:"agent_version"`
 	Timestamp    time.Time `json:"timestamp"`
 }
 
@@ -21,8 +21,8 @@ func Send(ctx context.Context, controllerURL, agentId, clusterName, agentVersion
 	log := logging.From(ctx)
 
 	body, _ := json.Marshal(Payload{
-		Cluster:      clusterName,
-		AgentId:      agentId,
+		AgentID:      agentId,
+		ClusterName:  clusterName,
 		AgentVersion: agentVersion,
 		Timestamp:    time.Now().UTC(),
 	})
