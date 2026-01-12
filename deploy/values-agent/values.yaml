@@ -3,7 +3,7 @@ namespace:
   create: true
 image:
   repository: ayuspoudel/sentinel-agent
-  tag: 1.1.0
+  tag: 1.1.1
   pullPolicy: IfNotPresent
 replicaCount: 1
 sentinelSRE:
@@ -18,4 +18,4 @@ selectors:
     key: sentinel.guard/enabled
     value: "true"
   workloadLabel:
-    key: sentinel.guard/name 
+    key: sentinel.guard/name
