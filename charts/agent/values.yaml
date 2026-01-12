@@ -9,7 +9,7 @@ image:
 replicaCount: 1
 
 env:
-  SENTINEL_SRE_URL: ""
+  SENTINEL_SRE_URL: "http://changeme.com"
 
 tls:
   secretName: sentinel-agent-tls
