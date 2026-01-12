@@ -10,6 +10,11 @@ import (
 	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/status"
 )
 
+/*
+Author: @ayuspoudel
+This is the implementation of the functions provided by our storage layer.
+We have not defined a struct and valdiates user inputs at this level here for simplicity.
+*/
 type PostgresStore struct{ db *sql.DB }
 
 func NewPostgresStore(db *sql.DB) *PostgresStore { return &PostgresStore{db: db} }

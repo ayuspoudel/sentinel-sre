@@ -6,6 +6,12 @@ import (
 	"fmt"
 )
 
+/*
+	Author: @ayuspoudel
+	This defines the DB schema policy registry will create at startup time
+	If the db table does not already exist in the db
+*/
+
 func RunMigrations(ctx context.Context, db *sql.DB) error {
 	query := `
 CREATE TABLE IF NOT EXISTS policies (

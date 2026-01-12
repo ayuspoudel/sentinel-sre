@@ -2,6 +2,12 @@ package status
 
 import "time"
 
+/*
+	@ayuspoudel
+	spec/spec.go define the specifications of what we want to recieve as input
+	This file define the status structure of policy after evaluation
+*/
+
 type PolicyStatus struct {
 	PolicyName string `json:"policy_name"`
 
