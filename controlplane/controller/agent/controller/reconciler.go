@@ -129,7 +129,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			contextName,
 			install.AgentNamespace,
 			install.AgentHelmRepo+"/"+install.AgentDeploymentName,
-			values.BuildAgentValues(c.controlPlaneUrl, cl.Name),
+			values.BuildAgentValues(c.controlPlaneUrl, cl.Name, install.AgentImageTag, install.AgentImageRepo),
 		)
 		if err != nil {
 			errMsg := err.Error()
@@ -164,7 +164,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			}
 		}
 
-		values := values.BuildAgentValues(c.controlPlaneUrl, cl.Name)
+		values := values.BuildAgentValues(c.controlPlaneUrl, cl.Name, install.AgentImageRepo, install.AgentImageTag)
 		err = c.installer.Install(ctx, &install.InstallConfig{
 			KubeConfig: kubeconfig, ContextName: contextName, Values: values,
 		})
@@ -182,9 +182,18 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		status.AgentInstalled = ptr(true)
 		status.AgentNamespace = ptr(install.AgentNamespace)
 	}
-
+	ready, err := presence.DetectAgentReadiness(ctx, install.AgentNamespace, targetClient)
+	if err != nil {
+		errMsg := err.Error()
+		success := false
+		status.LastError = &errMsg
+		status.LastReconcileSuccess = &success
+		log.Error("failed to detect agent readiness", "error", err)
+		return
+	}
+	status.AgentHealthy = ptr(ready)
 	status.LastReconcileSuccess = ptr(true)
-	log.Info("reconcile finished successfully")
+	log.Info("reconcile finished successfully", "agent_ready", ready)
 }
 
 func ptr[T any](v T) *T {
