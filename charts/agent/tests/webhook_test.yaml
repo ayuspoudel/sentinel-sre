@@ -6,14 +6,16 @@ templates:
 tests:
   - it: should create validating admission webhook
     set:
-      sentinelSRE.url: http://sentinel-sre.example
+      env:
+        SENTINEL_SRE_URL: http://sentinel-sre.example
     asserts:
       - isKind:
           of: ValidatingWebhookConfiguration
 
   - it: should set failurePolicy to Fail
     set:
-      sentinelSRE.url: http://sentinel-sre.example
+      env:
+        SENTINEL_SRE_URL: http://sentinel-sre.example
       webhook.failurePolicy: Fail
     asserts:
       - equal:
@@ -22,7 +24,8 @@ tests:
 
   - it: should require namespace opt-in
     set:
-      sentinelSRE.url: http://sentinel-sre.example
+      env:
+        SENTINEL_SRE_URL: http://sentinel-sre.example
     asserts:
       - equal:
           path: webhooks[0].namespaceSelector.matchExpressions[0].key
@@ -30,7 +33,8 @@ tests:
 
   - it: should require workload guard label
     set:
-      sentinelSRE.url: http://sentinel-sre.example
+      env:
+        SENTINEL_SRE_URL: http://sentinel-sre.example
     asserts:
       - equal:
           path: webhooks[0].objectSelector.matchExpressions[0].operator
@@ -38,6 +42,7 @@ tests:
 
   - it: should match the webhook snapshot
     set:
-      sentinelSRE.url: http://sentinel-sre.example
+      env:
+        SENTINEL_SRE_URL: http://sentinel-sre.example
     asserts:
       - matchSnapshot: {}

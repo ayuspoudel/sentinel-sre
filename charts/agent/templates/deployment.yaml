@@ -23,9 +23,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - "--listen=:8443"
-          env:
-            - name: SENTINEL_SRE_URL
-              value: {{ required "sentinelSRE.url is required" .Values.sentinelSRE.url | quote }}
+          envFrom:
+            - configMapRef:
+                name: sentinel-agent-env
           ports:
             - name: https
               containerPort: 8443

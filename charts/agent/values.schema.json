@@ -17,16 +17,20 @@
       "minimum": 1
     },
 
-    "sentinelSRE": {
+    "env": {
       "type": "object",
       "properties": {
-        "url": {
+        "SENTINEL_SRE_URL": {
           "type": "string",
           "minLength": 1
         }
       },
-      "required": ["url"]
+      "required": ["SENTINEL_SRE_URL"],
+      "additionalProperties": {
+        "type": "string"
+      }
     },
+
 
     "tls": {
       "type": "object",
@@ -80,7 +84,7 @@
   "required": [
     "image",
     "replicaCount",
-    "sentinelSRE",
+    "env",
     "tls",
     "webhook",
     "selectors"
