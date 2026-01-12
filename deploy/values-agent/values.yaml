@@ -3,7 +3,7 @@ namespace:
   create: true
 image:
   repository: ayuspoudel/sentinel-agent
-  tag: 1.1.1
+  tag: 1.1.2
   pullPolicy: IfNotPresent
 replicaCount: 1
 sentinelSRE:
