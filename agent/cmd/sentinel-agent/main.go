@@ -64,7 +64,7 @@ func main() {
 		}
 	}()
 
-	// Agent → Agent Controller heartbeat (independent)
+	// Agent to Agent Controller heartbeat (independent)
 	go heartbeat.Start(
 		ctx,
 		30*time.Second,
