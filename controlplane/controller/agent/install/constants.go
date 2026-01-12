@@ -6,6 +6,6 @@ const (
 	AgentReleaseName    = AgentDeploymentName
 	AgentHelmRepo       = "sentinel-sre"
 	DefaultHelmDriver   = ""
-	AgentImageTag       = "1.0.9"
+	AgentImageTag       = "1.1.1"
 	AgentImageRepo      = "ayuspoudel/sentinel-agent"
 )
