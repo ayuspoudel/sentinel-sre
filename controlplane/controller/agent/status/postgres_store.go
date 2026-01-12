@@ -18,6 +18,7 @@ func NewStatusStore(db *pgxpool.Pool) *StatusStore {
 func (s *StatusStore) Upsert(ctx context.Context, st *ClusterStatus) error {
 	query := `INSERT INTO cluster_status (
 		cluster_name,
+		agent_id,
 		last_reconcile_at,
 		last_reconcile_duration_ms,
 		last_reconcile_success,
@@ -33,8 +34,9 @@ func (s *StatusStore) Upsert(ctx context.Context, st *ClusterStatus) error {
 		agent_last_heartbeat,
 		updated_at
 	) VALUES (
-		$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+		$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
 	) ON CONFLICT (cluster_name) DO UPDATE SET
+		agent_id=EXCLUDED.agent_id,
 		last_reconcile_at=EXCLUDED.last_reconcile_at,
 		last_reconcile_duration_ms=EXCLUDED.last_reconcile_duration_ms,
 		last_reconcile_success=EXCLUDED.last_reconcile_success,
@@ -53,6 +55,7 @@ func (s *StatusStore) Upsert(ctx context.Context, st *ClusterStatus) error {
 		ctx,
 		query,
 		st.ClusterName,
+		st.AgentID,
 		st.LastReconcileAt,
 		st.LastReconcileDurationMs,
 		st.LastReconcileSuccess,
@@ -74,6 +77,7 @@ func (s *StatusStore) Upsert(ctx context.Context, st *ClusterStatus) error {
 func (s *StatusStore) Get(ctx context.Context, clusterName string) (*ClusterStatus, error) {
 	query := `SELECT
 		cluster_name,
+		agent_id,
 		last_reconcile_at,
 		last_reconcile_duration_ms,
 		last_reconcile_success,
@@ -93,6 +97,7 @@ func (s *StatusStore) Get(ctx context.Context, clusterName string) (*ClusterStat
 	var st ClusterStatus
 	err := row.Scan(
 		&st.ClusterName,
+		&st.AgentID,
 		&st.LastReconcileAt,
 		&st.LastReconcileDurationMs,
 		&st.LastReconcileSuccess,

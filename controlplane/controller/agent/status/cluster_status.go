@@ -4,6 +4,7 @@ import "time"
 
 type ClusterStatus struct {
 	ClusterName              string
+	AgentID                  *string
 	LastReconcileAt          *time.Time
 	LastReconcileDurationMs  *int
 	LastReconcileSuccess     *bool

@@ -20,12 +20,14 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	log := logging.From(ctx)
 	start := time.Now()
 	status := &status.ClusterStatus{ClusterName: cl.Name, LastReconcileAt: &start}
+
 	defer func() {
 		duration := int(time.Since(start).Milliseconds())
 		log.Info("reconcile completed", "duration_ms", duration, "success", status.LastReconcileSuccess)
 	}()
 
 	log.Info("reconcile started", "labels", cl.Labels)
+
 	defer func() {
 		duration := int(time.Since(start).Milliseconds())
 		status.LastReconcileDurationMs = &duration
@@ -110,6 +112,9 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		return
 	}
 
+	agentID := cl.Name
+	agentVersion := install.AgentImageTag
+
 	if !installed {
 		log.Info("agent not present, installing")
 
@@ -123,13 +128,23 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			return
 		}
 
+		agentValues := values.BuildAgentValues(
+			c.controlPlaneUrl,
+			c.controlPlaneUrl,
+			cl.Name,
+			agentID,
+			agentVersion,
+			install.AgentImageRepo,
+			install.AgentImageTag,
+		)
+
 		manifest, err := adoption.RenderManifests(
 			ctx,
 			kubeconfig,
 			contextName,
 			install.AgentNamespace,
 			install.AgentHelmRepo+"/"+install.AgentDeploymentName,
-			values.BuildAgentValues(c.controlPlaneUrl, cl.Name, install.AgentImageTag, install.AgentImageRepo),
+			agentValues,
 		)
 		if err != nil {
 			errMsg := err.Error()
@@ -152,7 +167,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 
 		for _, obj := range objects {
 			err := adoption.Adopt(ctx, dynClient, obj, adoption.Ownership{
-				ReleaseName: install.AgentReleaseName, ReleaseNamespace: install.AgentNamespace,
+				ReleaseName:      install.AgentReleaseName,
+				ReleaseNamespace: install.AgentNamespace,
 			})
 			if err != nil {
 				errMsg := err.Error()
@@ -164,9 +180,10 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 			}
 		}
 
-		values := values.BuildAgentValues(c.controlPlaneUrl, cl.Name, install.AgentImageRepo, install.AgentImageTag)
 		err = c.installer.Install(ctx, &install.InstallConfig{
-			KubeConfig: kubeconfig, ContextName: contextName, Values: values,
+			KubeConfig:  kubeconfig,
+			ContextName: contextName,
+			Values:      agentValues,
 		})
 		if err != nil {
 			errMsg := err.Error()
@@ -182,6 +199,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		status.AgentInstalled = ptr(true)
 		status.AgentNamespace = ptr(install.AgentNamespace)
 	}
+
 	ready, err := presence.DetectAgentReadiness(ctx, install.AgentNamespace, targetClient)
 	if err != nil {
 		errMsg := err.Error()
@@ -191,8 +209,10 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		log.Error("failed to detect agent readiness", "error", err)
 		return
 	}
+
 	status.AgentHealthy = ptr(ready)
 	status.LastReconcileSuccess = ptr(true)
+
 	log.Info("reconcile finished successfully", "agent_ready", ready)
 }
 

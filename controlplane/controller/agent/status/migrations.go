@@ -10,6 +10,7 @@ import (
 func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	query := `CREATE TABLE IF NOT EXISTS cluster_status (
 		cluster_name TEXT PRIMARY KEY,
+		agent_id TEXT,
 		last_reconcile_at TIMESTAMPTZ,
 		last_reconcile_duration_ms INTEGER,
 		last_reconcile_success BOOLEAN,
