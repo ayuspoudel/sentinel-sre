@@ -5,6 +5,20 @@ import (
 	"database/sql"
 )
 
+/*
+	Author: @ayuspoudel
+	This adapter lets the policy service observe current cluster reality without talking directly
+	to Kubernetes. It relies on state already collected by agent-controller and stored
+	in the database.
+		1. Cluster Reachable?
+		2. Agent Installed?
+		3. Agent Healthy?
+		4. Namespace Exists?
+	These checks are soft signals used to populate policy status, not to block policy
+	creation. Keeping this logic as a thin DB reader avoids tight coupling between the policy service
+	and cluster APIs while still giving accurate readiness information.
+*/
+
 type ControllerReaderAdapter struct {
 	db *sql.DB
 }
