@@ -150,6 +150,19 @@ func (h *HelmInstaller) Install(ctx context.Context, cfg *InstallConfig) error {
 	if err != nil {
 		if strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
 			log.Warn("helm release already exists, skipping install")
+			upgrade := action.NewUpgrade(actionCfg)
+			upgrade.Namespace = AgentNamespace
+			upgrade.Install = true
+			upgrade.Wait = false
+			upgrade.Timeout = 30 * time.Second
+
+			_, uerr := upgrade.RunWithContext(ctx, AgentReleaseName, ch, cfg.Values)
+			if uerr != nil {
+				log.Error("helm upgrade failed", "error", uerr)
+				return fmt.Errorf("helm upgrade failed: %w", uerr)
+			}
+
+			log.Info("helm upgrade completed successfully")
 			return nil
 		}
 		log.Error("helm install failed", "error", err)
