@@ -10,6 +10,19 @@ import (
 	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/store"
 )
 
+/*
+	Author: @ayuspoudel
+	This file contains actual implementation of policy service. Before this adapters, specs, status and store
+	exist to support the logic of this implementaiton.
+	RegistryService is a struct which has everything we need for now.
+	What we need?
+		1. A store to store user input policy
+		2. Reach the clusterRegistry and check if user input cluster is valid and ns exist
+		3. Reach controller to check if agent is installed and healthy
+		4. Reach prometheus to validate queries
+	Thus we have put store.PolicyStore, and three adapters ClusterRegistry, ControllerReader and PrometheusClient
+*/
+
 type RegistryService struct {
 	store store.PolicyStore
 
@@ -27,16 +40,19 @@ func NewRegistryService(store store.PolicyStore, clusters ClusterRegistry, contr
 	}
 }
 
-func (s *RegistryService) ApplyPolicy(
-	ctx context.Context,
-	p *spec.PolicySpec,
-) (*status.PolicyStatus, error) {
+/*
+	Author: ayuspoudel
+	PolicySpec contains all information passed by user. It also has a method Validate() for semantic validation.
+	After semantic validation is done, we have methods in each ClusterRegistry, ControllerReader and PrometheusClient
+	for further validations.
+	Then it stores policy into DB with a schema defined by store/ package.
+*/
 
+func (s *RegistryService) ApplyPolicy(ctx context.Context, p *spec.PolicySpec) (*status.PolicyStatus, error) {
 	// Pure spec validation (hard fail)
 	if err := spec.Validate(p); err != nil {
 		return nil, err
 	}
-
 	// Cluster intent validation (hard fail)
 	exists, err := s.clusters.ClusterExists(ctx, p.Target.Cluster)
 	if err != nil {
@@ -48,14 +64,12 @@ func (s *RegistryService) ApplyPolicy(
 			p.Target.Cluster,
 		)
 	}
-
 	// Status is only created after intent is valid
 	st := &status.PolicyStatus{
 		PolicyName:      p.Metadata.Name,
 		ClusterExists:   true,
 		LastValidatedAt: time.Now().UTC(),
 	}
-
 	// Controller-backed validation (soft)
 	st.ClusterReachable, _ = s.controller.ClusterReachable(ctx, p.Target.Cluster)
 	st.NamespaceExists, _ = s.controller.NamespaceExists(ctx, p.Target.Cluster, p.Target.Namespace)
@@ -66,7 +80,6 @@ func (s *RegistryService) ApplyPolicy(
 		errMsg := "namespace does not exist"
 		st.LastError = &errMsg
 	}
-
 	// Prometheus validation (soft)
 	if err := s.prom.Query(ctx, p.Signals.Traffic.Query); err == nil {
 		if err := s.prom.Query(ctx, p.Signals.Errors.Query); err == nil {
@@ -74,7 +87,6 @@ func (s *RegistryService) ApplyPolicy(
 			st.QueriesValid = true
 		}
 	}
-
 	// Persist spec + status (authoritative write)
 	if err := s.store.UpsertPolicy(ctx, p); err != nil {
 		return nil, err
@@ -82,7 +94,6 @@ func (s *RegistryService) ApplyPolicy(
 	if err := s.store.UpdateStatus(ctx, st); err != nil {
 		return nil, err
 	}
-
 	return st, nil
 }
 
