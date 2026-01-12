@@ -2,7 +2,8 @@
 
 The Policy Registry Service is responsible for managing and storing policies that govern the behavior of the control plane. It provides a centralized repository for policy definitions, allowing for easy retrieval, updates, and enforcement across different components of the system.
 
-### Architecture
+## Architecture
+
 
 This follows a hexagonal architecture design pattern with implicit interface satisfation. 
 The layers of design are
@@ -30,6 +31,7 @@ The layers of design are
 - Methods are:
     * /health
     * PUT /v1/policies/{name}
+    * GET /v1/policies/{name}
     * GET /v1/policies/{name}/status
     * DELETE /v1/policies/{name}
 
@@ -37,7 +39,7 @@ The layers of design are
 ### API Documentation
 
 #### Health
-
+---
 ```
 GET /health
 ```
@@ -54,7 +56,7 @@ ok
 
 
 #### Apply Policy (Create / Update)
-
+---
 ```
 PUT /v1/policies/{name}
 ```
@@ -102,7 +104,7 @@ Creates or replaces a policy.
 }
 ```
 
-Response
+**Response**
 
 ```json
 {
@@ -110,23 +112,15 @@ Response
 }
 ```
 
-Notes
-
-* `metadata.name` is derived from `{name}` path parameter
-* Invalid intent is rejected immediately
-* Environment issues do not block policy creation (captured in status)
-
-
-
 #### Get Policy
-
+---
 ```
 GET /v1/policies/{name}
 ```
 
 Returns the stored policy spec.
 
-Response
+**Response**
 
 ```json
 { ...PolicySpec }
@@ -135,14 +129,14 @@ Response
 
 
 #### List Policies
-
+---
 ```
 GET /v1/policies
 ```
 
 Returns all policies.
 
-Response
+**Response**
 
 ```json
 [
@@ -154,14 +148,14 @@ Response
 
 
 ### Get Policy Status
-
+---
 ```
 GET /v1/policies/{name}/status
 ```
 
 Returns derived policy status.
 
-Response
+**Response**
 
 ```json
 {
@@ -177,22 +171,16 @@ Response
 }
 ```
 
-Notes
-
-* Status explains *why* a policy may not be enforced
-* Status does not affect policy existence
-
-
 
 ### Delete Policy
-
+---
 ```
 DELETE /v1/policies/{name}
 ```
 
 Deletes policy and associated status.
 
-Response
+**Response**
 
 ```
 204 No Content
