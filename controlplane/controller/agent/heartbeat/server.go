@@ -25,6 +25,10 @@ func (s *Server) Start(ctx context.Context) error {
 	log := logging.From(ctx)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.Handle("/api/v1/agent/heartbeat", NewHandler(s.store))
 
 	srv := &http.Server{
