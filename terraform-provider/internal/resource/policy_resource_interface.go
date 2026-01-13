@@ -14,4 +14,5 @@ type PolicyResourceInterface interface {
 	Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
 	Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
 	Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+	ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
 }
