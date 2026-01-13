@@ -4,3 +4,4 @@ new-cluster
 *.txt
 sample-kubeconfig.*
 sentinel-agent-controller
+test.json
