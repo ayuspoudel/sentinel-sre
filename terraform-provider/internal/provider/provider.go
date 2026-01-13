@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ayuspoudel/sentinel-sre/terraform-provider/internal/config"
+	sentinelDatasource "github.com/ayuspoudel/sentinel-sre/terraform-provider/internal/datasource"
 	sentinelResource "github.com/ayuspoudel/sentinel-sre/terraform-provider/internal/resource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -66,7 +67,9 @@ func (p *SentinelProvider) Configure(ctx context.Context, req provider.Configure
 }
 
 func (p *SentinelProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		sentinelDatasource.NewPolicyStatusDataSource,
+	}
 }
 
 func (p *SentinelProvider) Resources(ctx context.Context) []func() resource.Resource {
