@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/spec"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/status"
 )
 
 /*
@@ -92,7 +93,34 @@ func (s *SentinelClient) GetPolicy(ctx context.Context, name string) (*spec.Poli
 	return &policy, nil
 
 }
+func (s *SentinelClient) GetPolicyStatus(ctx context.Context, name string) (*status.PolicyStatus, error) {
+	apiEndpoint := fmt.Sprintf("%s/v1/policies/%s/status", s.baseURL, name)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, apiEndpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	s.addHeaders(request)
 
+	response, err := s.http.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if response.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("failed to get policy: %s", response.Status)
+	}
+	var policy status.PolicyStatus
+	err = json.NewDecoder(response.Body).Decode(&policy)
+	if err != nil {
+		return nil, err
+	}
+	return &policy, nil
+
+}
 func (s *SentinelClient) DeletePolicy(ctx context.Context, name string) error {
 	apiEndpoint := fmt.Sprintf("%s/v1/policies/%s", s.baseURL, name)
 	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, apiEndpoint, nil)
