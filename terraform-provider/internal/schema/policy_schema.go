@@ -1,4 +1,4 @@
-package resource
+package schema
 
 import "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 
