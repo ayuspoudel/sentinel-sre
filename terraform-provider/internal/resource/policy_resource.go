@@ -175,3 +175,22 @@ func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	resp.State.RemoveResource(ctx)
 
 }
+
+func (r *PolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	policyName := req.ID
+	if policyName == "" {
+		resp.Diagnostics.AddError("invalid import ID", "import ID cannot be empty")
+		return
+	}
+	policySpec, err := r.client.GetPolicy(ctx, policyName)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to get policy during import", err.Error())
+		return
+	}
+	if policySpec == nil {
+		resp.Diagnostics.AddError("policy not found", "no policy found with the given name")
+		return
+	}
+	policyModel := models.FlattenPolicySpec(policySpec)
+	resp.State.Set(ctx, policyModel)
+}
