@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/clusterRegistered"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/kube"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/model"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
@@ -21,11 +22,12 @@ It has functions like Create(cluster), Get(clusterName), List(), Delete(clusterN
 Cluster is also a struct defined in model.go
 */
 type Handler struct {
-	svc *service.Service
+	svc       *service.Service
+	publisher clusterRegistered.ClusterRegisteredPublisher
 }
 
-func NewHandler(svc *service.Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *service.Service, publisher clusterRegistered.ClusterRegisteredPublisher) *Handler {
+	return &Handler{svc: svc, publisher: publisher}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -51,11 +53,14 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	c := &model.Cluster{Name: req.Name, CredentialRef: req.CredentialRef, Labels: req.Labels}
 	err = h.svc.Register(r.Context(), c)
+
 	if err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
 	}
-
+	if h.publisher != nil {
+		err = h.publisher.PublishClusterRegistered(r.Context(), c)
+	}
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -225,6 +230,9 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 	if err := h.svc.Register(r.Context(), cluster); err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
+	}
+	if h.publisher != nil {
+		_ = h.publisher.PublishClusterRegistered(r.Context(), cluster)
 	}
 
 	w.WriteHeader(http.StatusCreated)

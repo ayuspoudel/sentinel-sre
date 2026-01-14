@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
