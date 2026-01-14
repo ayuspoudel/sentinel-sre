@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 )
 
 type Handler struct {
