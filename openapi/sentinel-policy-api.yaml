@@ -1,0 +1,299 @@
+openapi: 3.0.3
+
+info:
+  title: Sentinel Policy API
+  description: >
+    Sentinel Control Plane API for managing policies and retrieving
+    real-time policy validation status from Sentinel.
+  version: 1.0.1
+
+servers:
+  - url: http://localhost:9001
+    description: Local development
+
+tags:
+  - name: Policies
+    description: Policy lifecycle management
+  - name: Policy Status
+    description: Policy validation and health status
+
+paths:
+  /v1/policies:
+    get:
+      tags: [Policies]
+      summary: List policies
+      description: Returns all configured policies.
+      responses:
+        "200":
+          description: List of policy names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /v1/policies/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        description: Policy name
+        schema:
+          type: string
+
+    get:
+      tags: [Policies]
+      summary: Get policy
+      description: Retrieve a policy definition by name.
+      responses:
+        "200":
+          description: Policy definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Policies]
+      summary: Create or update policy
+      description: Creates a new policy or updates an existing one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Policy"
+      responses:
+        "200":
+          description: Policy created or updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    delete:
+      tags: [Policies]
+      summary: Delete policy
+      description: Deletes a policy by name.
+      responses:
+        "204":
+          description: Policy deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/policies/{name}/status:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        description: Policy name
+        schema:
+          type: string
+
+    get:
+      tags: [Policy Status]
+      summary: Get policy status
+      description: >
+        Returns the real-time validation status of a policy across
+        cluster, agent, namespace, and observability checks.
+      responses:
+        "200":
+          description: Policy status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+
+    Policy:
+      title: Sentinel Policy
+      description: Full Sentinel policy definition
+      type: object
+      required:
+        - metadata
+        - target
+        - signals
+        - policy
+      properties:
+        metadata:
+          $ref: "#/components/schemas/PolicyMetadata"
+        target:
+          $ref: "#/components/schemas/PolicyTarget"
+        signals:
+          $ref: "#/components/schemas/PolicySignals"
+        policy:
+          $ref: "#/components/schemas/PolicyRules"
+
+    PolicyMetadata:
+      type: object
+      description: Policy identity and ownership
+      required:
+        - name
+        - owner
+        - environment
+      properties:
+        name:
+          type: string
+          example: test
+        owner:
+          type: string
+          example: payments-sre
+        environment:
+          type: string
+          example: prod
+
+    PolicyTarget:
+      type: object
+      description: Target where the policy applies
+      required:
+        - cluster
+        - namespace
+        - service
+      properties:
+        cluster:
+          type: string
+          example: sreCluster
+        namespace:
+          type: string
+          example: checkout
+        service:
+          type: string
+          example: checkout-api
+
+    PolicySignals:
+      type: object
+      description: Signals evaluated by Sentinel
+      properties:
+        traffic:
+          type: object
+          required:
+            - query
+            - minRPS
+          properties:
+            query:
+              type: string
+              example: up
+            minRPS:
+              type: number
+              example: 1
+
+        errors:
+          type: object
+          required:
+            - query
+          properties:
+            query:
+              type: string
+              example: up
+
+        slo:
+          type: object
+          required:
+            - objective
+            - window
+          properties:
+            objective:
+              type: number
+              format: float
+              example: 99.9
+            window:
+              type: string
+              example: 30m
+
+    PolicyRules:
+      type: object
+      description: Policy evaluation and budget rules
+      required:
+        - budget
+      properties:
+        budget:
+          type: object
+          required:
+            - fastBurn
+            - slowBurn
+          properties:
+            fastBurn:
+              $ref: "#/components/schemas/BurnRate"
+            slowBurn:
+              $ref: "#/components/schemas/BurnRate"
+
+    BurnRate:
+      type: object
+      description: Burn rate evaluation window
+      required:
+        - window
+        - threshold
+      properties:
+        window:
+          type: string
+          example: 5m
+        threshold:
+          type: number
+          example: 14
+
+    PolicyStatus:
+      type: object
+      description: Runtime validation status of a policy
+      required:
+        - name
+        - last_validated_at
+      properties:
+        name:
+          type: string
+          example: checkout
+        cluster_exists:
+          type: boolean
+        cluster_reachable:
+          type: boolean
+        namespace_exists:
+          type: boolean
+        agent_installed:
+          type: boolean
+        agent_healthy:
+          type: boolean
+        prometheus_reachable:
+          type: boolean
+        queries_valid:
+          type: boolean
+        last_validated_at:
+          type: string
+          format: date-time
+          example: "2026-01-13T15:32:22Z"
+        last_error:
+          type: string
+          nullable: true
+          example: "namespace does not exist"
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: string
+                example: not found
+
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: string
+                example: invalid request
