@@ -10,8 +10,11 @@ import (
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/api"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/db"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/clusterRegistered"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/redis"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/store"
+	"github.com/ayuspoudel/sentinel-sre/pkg/env"
 )
 
 func main() {
@@ -40,7 +43,13 @@ func main() {
 
 	store := store.NewPgxStore(db)
 	svc := service.NewService(store)
-	handler := api.NewHandler(svc)
+	redis := redis.New()
+	redisStream := env.MustEnv("REDIS_STREAM", false)
+	var publisher clusterRegistered.ClusterRegisteredPublisher
+	if redisStream != "" {
+		publisher = clusterRegistered.NewRedisPublisher(redis, redisStream)
+	}
+	handler := api.NewHandler(svc, publisher)
 	server := api.NewServer(":8080", handler)
 
 	err = server.Run(ctx)
