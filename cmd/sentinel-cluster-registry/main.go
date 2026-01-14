@@ -8,7 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/api"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/db"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/store"
 )
 
 func main() {
@@ -21,7 +24,7 @@ func main() {
 	defer stop()
 	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	db, err := cluster.NewDB(dbCtx, dbURL)
+	db, err := db.NewDB(dbCtx, dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,14 +33,15 @@ func main() {
 	migCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	err = cluster.RunMigrations(migCtx, db)
+	err = store.RunMigrations(migCtx, db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	store := cluster.NewPgxStore(db)
-	handler := cluster.NewHandler(store)
-	server := cluster.NewServer(":8080", handler)
+	store := store.NewPgxStore(db)
+	svc := service.NewService(store)
+	handler := api.NewHandler(svc)
+	server := api.NewServer(":8080", handler)
 
 	err = server.Run(ctx)
 	if err != nil {
