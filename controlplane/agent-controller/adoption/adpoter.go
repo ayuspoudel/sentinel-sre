@@ -3,7 +3,7 @@ package adoption
 import (
 	"context"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

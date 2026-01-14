@@ -9,12 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/controller"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/events"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/heartbeat"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/kube"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/controller"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/events"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/heartbeat"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/install"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/kube"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
 
 	"github.com/jackc/pgx/v5/pgxpool"
