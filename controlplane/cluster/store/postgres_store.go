@@ -1,9 +1,10 @@
-package cluster
+package store
 
 import (
 	"context"
 	"errors"
 
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,16 +17,16 @@ func NewPgxStore(db *pgxpool.Pool) *PgxStore {
 	return &PgxStore{db: db}
 }
 
-func (s *PgxStore) Create(ctx context.Context, c *Cluster) error {
+func (s *PgxStore) Create(ctx context.Context, c *model.Cluster) error {
 	query := `INSERT INTO clusters (name, credential_ref, labels) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`
 	_, err := s.db.Exec(ctx, query, c.Name, c.CredentialRef, c.Labels)
 	return err
 }
 
-func (s *PgxStore) Get(ctx context.Context, name string) (*Cluster, error) {
+func (s *PgxStore) Get(ctx context.Context, name string) (*model.Cluster, error) {
 	query := `SELECT name, credential_ref, labels, created_at FROM clusters WHERE name=$1`
 	row := s.db.QueryRow(ctx, query, name)
-	var c Cluster
+	var c model.Cluster
 	err := row.Scan(&c.Name, &c.CredentialRef, &c.Labels, &c.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -36,16 +37,16 @@ func (s *PgxStore) Get(ctx context.Context, name string) (*Cluster, error) {
 	return &c, nil
 }
 
-func (s *PgxStore) List(ctx context.Context) ([]*Cluster, error) {
+func (s *PgxStore) List(ctx context.Context) ([]*model.Cluster, error) {
 	query := `SELECT name, credential_ref, labels, created_at FROM clusters ORDER BY created_at`
 	rows, err := s.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var clusters []*Cluster
+	var clusters []*model.Cluster
 	for rows.Next() {
-		var c Cluster
+		var c model.Cluster
 		err := rows.Scan(&c.Name, &c.CredentialRef, &c.Labels, &c.CreatedAt)
 		if err != nil {
 			return nil, err

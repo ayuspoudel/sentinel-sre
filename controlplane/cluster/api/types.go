@@ -1,4 +1,4 @@
-package cluster
+package api
 
 type RegisterRequest struct {
 	Name          string            `json:"name"`

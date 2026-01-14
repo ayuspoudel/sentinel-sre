@@ -1,4 +1,4 @@
-package cluster
+package api
 
 import (
 	"encoding/json"
@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/kube"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/model"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -18,11 +21,11 @@ It has functions like Create(cluster), Get(clusterName), List(), Delete(clusterN
 Cluster is also a struct defined in model.go
 */
 type Handler struct {
-	store Store
+	svc *service.Service
 }
 
-func NewHandler(store Store) *Handler {
-	return &Handler{store: store}
+func NewHandler(svc *service.Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -46,8 +49,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := &Cluster{Name: req.Name, CredentialRef: req.CredentialRef, Labels: req.Labels}
-	err = h.store.Create(r.Context(), c)
+	c := &model.Cluster{Name: req.Name, CredentialRef: req.CredentialRef, Labels: req.Labels}
+	err = h.svc.Register(r.Context(), c)
 	if err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
@@ -62,7 +65,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clusters, err := h.store.List(r.Context())
+	clusters, err := h.svc.List(r.Context())
 	if err != nil {
 		http.Error(w, "failed to list clusters", http.StatusInternalServerError)
 		return
@@ -83,7 +86,7 @@ func (h *Handler) GetByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster, err := h.store.Get(r.Context(), name)
+	cluster, err := h.svc.Get(r.Context(), name)
 	if err != nil {
 		http.Error(w, "failed to get cluster", http.StatusInternalServerError)
 		return
@@ -108,7 +111,7 @@ func (h *Handler) DeleteByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.store.Delete(r.Context(), name)
+	err := h.svc.Delete(r.Context(), name)
 	if err != nil {
 		http.Error(w, "failed to delete cluster", http.StatusInternalServerError)
 		return
@@ -123,7 +126,7 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// DB reachability
-	_, err := h.store.List(r.Context())
+	_, err := h.svc.List(r.Context())
 	if err != nil {
 		http.Error(w, "unhealthy", http.StatusServiceUnavailable)
 		return
@@ -205,21 +208,21 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// We have validated the kubeconfig and contextName provided by user
-	safeName := ToDNS1123Name(name)
+	safeName := model.ToDNS1123Name(name)
 	secretName := fmt.Sprintf("sentinel-cluster-%s", safeName)
 	namespace := "sentinel"
-	kubeclient, err := NewKubeClient()
+	kubeclient, err := kube.NewKubeClient()
 	if err != nil {
 		http.Error(w, "failed to init kube client", http.StatusInternalServerError)
 		return
 	}
-	err = EnsureKubeconfigSecret(r.Context(), kubeclient, namespace, secretName, kubeconfig)
+	err = kube.EnsureKubeconfigSecret(r.Context(), kubeclient, namespace, secretName, kubeconfig)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cluster := &Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{"context": contextName}}
-	if err := h.store.Create(r.Context(), cluster); err != nil {
+	cluster := &model.Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{"context": contextName}}
+	if err := h.svc.Register(r.Context(), cluster); err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
 	}
