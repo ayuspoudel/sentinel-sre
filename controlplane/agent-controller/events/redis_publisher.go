@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 	"github.com/redis/go-redis/v9"
 )
 
