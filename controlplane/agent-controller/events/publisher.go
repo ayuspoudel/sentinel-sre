@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 )
 
 type ClusterStatusPublisher interface {
