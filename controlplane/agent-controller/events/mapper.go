@@ -1,6 +1,6 @@
 package events
 
-import "github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
+import "github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 
 /*
 	Author: @ayuspoudel
