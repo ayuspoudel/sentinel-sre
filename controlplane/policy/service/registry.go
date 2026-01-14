@@ -7,7 +7,7 @@ import (
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/spec"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/status"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/policy/store"
+	policyStatus "github.com/ayuspoudel/sentinel-sre/controlplane/policy/store/policyStatus"
 )
 
 /*
@@ -24,14 +24,14 @@ import (
 */
 
 type RegistryService struct {
-	store store.PolicyStore
+	store policyStatus.PolicyStore
 
 	clusters   ClusterRegistry
 	controller ControllerReader
 	prom       PrometheusClient
 }
 
-func NewRegistryService(store store.PolicyStore, clusters ClusterRegistry, controller ControllerReader, prom PrometheusClient) *RegistryService {
+func NewRegistryService(store policyStatus.PolicyStore, clusters ClusterRegistry, controller ControllerReader, prom PrometheusClient) *RegistryService {
 	return &RegistryService{
 		store:      store,
 		clusters:   clusters,
