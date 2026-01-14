@@ -5,10 +5,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/controller"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/events"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/heartbeat"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/kube"
@@ -19,14 +21,29 @@ import (
 )
 
 func main() {
-	registryURL := mustEnv("REGISTRY_URL")
-	controlPlaneURL := mustEnv("CONTROL_PLANE_URL")
-	postgresURL := mustEnv("AGENT_DB_URL")
-
-	reconcileInterval := envDuration("RECONCILE_INTERVAL", 10*time.Second)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	registryURL := mustEnv("REGISTRY_URL", false)
+	controlPlaneURL := mustEnv("CONTROL_PLANE_URL", false)
+	postgresURL := mustEnv("AGENT_DB_URL", false)
+	redisURL := mustEnv("REDIS_URL", false)
+	redisPassword := mustEnv("REDIS_PASSWORD", true)
+	redisStream := mustEnv("REDIS_STREAM", false)
+	redisDB := 0
+
+	if v := mustEnv("REDIS_DB", false); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			redisDB = parsed
+		}
+	}
+	redisClient := events.NewRedisClient(events.RedisConfig{Addr: redisURL, Password: redisPassword, DB: redisDB})
+	if err := events.PingRedis(ctx, redisClient); err != nil {
+		log.Fatalf("failed to connect to redis: %v", err)
+	}
+	publisher := events.NewRedisPublisher(redisClient, redisStream)
+
+	reconcileInterval := envDuration("RECONCILE_INTERVAL", 10*time.Second)
 
 	registry := registryClient.New(registryURL)
 	kubeClient, err := kube.NewKubeClient()
@@ -49,14 +66,7 @@ func main() {
 		"sentinel-sre",
 	)
 
-	controller := controller.NewController(
-		registry,
-		kubeClient,
-		store,
-		reconcileInterval,
-		controlPlaneURL,
-		installer,
-	)
+	controller := controller.NewController(registry, kubeClient, store, reconcileInterval, controlPlaneURL, installer, publisher)
 
 	heartbeatAddr := os.Getenv("HEARTBEAT_BIND_ADDR")
 	if heartbeatAddr == "" {
@@ -86,9 +96,9 @@ func main() {
 	log.Println("sentinel agent controller exited cleanly")
 }
 
-func mustEnv(name string) string {
+func mustEnv(name string, omitempty bool) string {
 	value := os.Getenv(name)
-	if value == "" {
+	if value == "" && omitempty == false {
 		log.Fatalf("environment variable %s is required", name)
 	}
 	return value
