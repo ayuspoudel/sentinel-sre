@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/adoption"
@@ -19,30 +20,50 @@ import (
 func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cluster) {
 	log := logging.From(ctx)
 	start := time.Now()
-	status := &status.ClusterStatus{ClusterName: cl.Name, LastReconcileAt: &start}
+
+	st := &status.ClusterStatus{
+		ClusterName:     cl.Name,
+		LastReconcileAt: &start,
+	}
 
 	defer func() {
 		duration := int(time.Since(start).Milliseconds())
-		log.Info("reconcile completed", "duration_ms", duration, "success", status.LastReconcileSuccess)
+		log.Info("reconcile completed", "duration_ms", duration, "success", st.LastReconcileSuccess)
 	}()
 
 	log.Info("reconcile started", "labels", cl.Labels)
 
 	defer func() {
 		duration := int(time.Since(start).Milliseconds())
-		status.LastReconcileDurationMs = &duration
-		err := c.store.Upsert(ctx, status)
+		st.LastReconcileDurationMs = &duration
+
+		existing, err := c.store.Get(ctx, cl.Name)
 		if err != nil {
-			log.Error("failed to upsert cluster status", "error", err)
+			log.Warn("failed to load existing cluster status, proceeding with new", "error", err)
+		}
+
+		merged := status.Merge(existing, st)
+
+		if err := c.store.Upsert(ctx, merged); err != nil {
+			log.Error("failed to upsert merged cluster status", "error", err)
+		}
+		if hasMeaningfulChange(existing, merged) {
+			if err := c.publisher.PublishClusterStatus(ctx, merged); err != nil {
+				log.Warn(
+					"failed to publish cluster status event",
+					"cluster", merged.ClusterName,
+					"error", err,
+				)
+			}
 		}
 	}()
 
 	contextName, ok := cl.Labels["context"]
 	if !ok || contextName == "" {
 		errMsg := "missing context label in registry stored by sentinel-k8s-cluster-registry"
-		status.LastError = &errMsg
 		success := false
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Warn("missing context label, skipping reconcile", "required_label", "context")
 		return
 	}
@@ -50,9 +71,9 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	kubeconfig, err := kube.LoadKubeConfig(ctx, c.kubeClient, "sentinel", cl.CredentialRef)
 	if err != nil {
 		errMsg := err.Error()
-		status.LastError = &errMsg
 		success := false
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to load kubeconfig", "namespace", "sentinel", "secret", cl.CredentialRef, "error", err)
 		return
 	}
@@ -61,8 +82,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	if err != nil {
 		errMsg := err.Error()
 		success := false
-		status.LastError = &errMsg
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to build rest config", "context", contextName, "error", err)
 		return
 	}
@@ -71,8 +92,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	if err != nil {
 		errMsg := err.Error()
 		success := false
-		status.LastError = &errMsg
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to create kubernetes client", "error", err)
 		return
 	}
@@ -82,9 +103,9 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		reachable := false
 		success := false
 		errMsg := err.Error()
-		status.Reachable = &reachable
-		status.LastError = &errMsg
-		status.LastReconcileSuccess = &success
+		st.Reachable = &reachable
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to connect to api server", "error", err)
 		return
 	}
@@ -94,11 +115,11 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	success := true
 	now := time.Now()
 
-	status.Reachable = &reachable
-	status.AuthValid = &authValid
-	status.LastReconcileSuccess = &success
-	status.APIServerVersion = &version.GitVersion
-	status.LastSuccessfulConnection = &now
+	st.Reachable = &reachable
+	st.AuthValid = &authValid
+	st.LastReconcileSuccess = &success
+	st.APIServerVersion = &version.GitVersion
+	st.LastSuccessfulConnection = &now
 
 	log.Info("connected to api server", "version", version.GitVersion)
 
@@ -106,8 +127,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 	if err != nil {
 		errMsg := err.Error()
 		success := false
-		status.LastError = &errMsg
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to detect agent presence", "error", err)
 		return
 	}
@@ -122,8 +143,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		if err != nil {
 			errMsg := err.Error()
 			success := false
-			status.LastError = &errMsg
-			status.LastReconcileSuccess = &success
+			st.LastError = &errMsg
+			st.LastReconcileSuccess = &success
 			log.Error("failed to create dynamic client", "error", err)
 			return
 		}
@@ -149,8 +170,8 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		if err != nil {
 			errMsg := err.Error()
 			success := false
-			status.LastError = &errMsg
-			status.LastReconcileSuccess = &success
+			st.LastError = &errMsg
+			st.LastReconcileSuccess = &success
 			log.Error("failed to render helm manifests", "error", err)
 			return
 		}
@@ -159,63 +180,93 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		if err != nil {
 			errMsg := err.Error()
 			success := false
-			status.LastError = &errMsg
-			status.LastReconcileSuccess = &success
+			st.LastError = &errMsg
+			st.LastReconcileSuccess = &success
 			log.Error("failed to parse helm manifests", "error", err)
 			return
 		}
 
 		for _, obj := range objects {
-			err := adoption.Adopt(ctx, dynClient, obj, adoption.Ownership{
+			if err := adoption.Adopt(ctx, dynClient, obj, adoption.Ownership{
 				ReleaseName:      install.AgentReleaseName,
 				ReleaseNamespace: install.AgentNamespace,
-			})
-			if err != nil {
+			}); err != nil {
 				errMsg := err.Error()
 				success := false
-				status.LastError = &errMsg
-				status.LastReconcileSuccess = &success
+				st.LastError = &errMsg
+				st.LastReconcileSuccess = &success
 				log.Error("failed to adopt resource", "error", err)
 				return
 			}
 		}
 
-		err = c.installer.Install(ctx, &install.InstallConfig{
+		if err := c.installer.Install(ctx, &install.InstallConfig{
 			KubeConfig:  kubeconfig,
 			ContextName: contextName,
 			Values:      agentValues,
-		})
-		if err != nil {
+		}); err != nil {
 			errMsg := err.Error()
 			success := false
-			status.LastError = &errMsg
-			status.LastReconcileSuccess = &success
+			st.LastError = &errMsg
+			st.LastReconcileSuccess = &success
 			log.Error("failed to install agent", "error", err)
 			return
 		}
 	}
 
 	if installed {
-		status.AgentInstalled = ptr(true)
-		status.AgentNamespace = ptr(install.AgentNamespace)
+		st.AgentInstalled = ptr(true)
+		st.AgentNamespace = ptr(install.AgentNamespace)
 	}
 
 	ready, err := presence.DetectAgentReadiness(ctx, install.AgentNamespace, targetClient)
 	if err != nil {
 		errMsg := err.Error()
 		success := false
-		status.LastError = &errMsg
-		status.LastReconcileSuccess = &success
+		st.LastError = &errMsg
+		st.LastReconcileSuccess = &success
 		log.Error("failed to detect agent readiness", "error", err)
 		return
 	}
 
-	status.AgentHealthy = ptr(ready)
-	status.LastReconcileSuccess = ptr(true)
+	st.AgentHealthy = ptr(ready)
+	st.LastReconcileSuccess = ptr(true)
 
 	log.Info("reconcile finished successfully", "agent_ready", ready)
 }
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+/*
+Author: @ayuspoudel
+This function evaluates if there are any meaningful change in the cluster status
+If yes, then only it will allow any DB insert or Event Publication. It is useful
+to avoid noise, unnecessary db writes and event publish.
+*/
+func hasMeaningfulChange(old, new *status.ClusterStatus) bool {
+	if old == nil {
+		return true
+	}
+
+	oldSignal := map[string]any{
+		"reachable":       old.Reachable,
+		"auth_valid":      old.AuthValid,
+		"agent_installed": old.AgentInstalled,
+		"agent_healthy":   old.AgentHealthy,
+		"agent_version":   old.AgentVersion,
+		"agent_namespace": old.AgentNamespace,
+	}
+
+	newSignal := map[string]any{
+		"reachable":       new.Reachable,
+		"auth_valid":      new.AuthValid,
+		"agent_installed": new.AgentInstalled,
+		"agent_healthy":   new.AgentHealthy,
+		"agent_version":   new.AgentVersion,
+		"agent_namespace": new.AgentNamespace,
+	}
+
+	return !reflect.DeepEqual(oldSignal, newSignal)
 }
