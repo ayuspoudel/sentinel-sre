@@ -53,12 +53,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		AgentLastHeartbeat: &now,
 		AgentVersion:       &req.AgentVersion,
 	}
-	log.Info(
-		"agent heartbeat received",
-		"cluster", req.ClusterName,
-		"agent_id", req.AgentID,
-		"agent_version", req.AgentVersion,
-	)
+	log.Info("agent heartbeat received", "cluster", req.ClusterName, "agent_id", req.AgentID, "agent_version", req.AgentVersion)
 
 	if err := h.store.Upsert(r.Context(), st); err != nil {
 		log.Error("failed to persist heartbeat", "error", err)
