@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/events"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/logging"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/controller/agent/status"
@@ -18,10 +19,13 @@ type Controller struct {
 	interval        time.Duration
 	controlPlaneUrl string
 	installer       install.Installer
+	publisher       events.ClusterStatusPublisher
 }
 
-func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clientset, store status.Store, interval time.Duration, controlPlaneUrl string, installer install.Installer) *Controller {
-	return &Controller{registry: registry, kubeClient: kubeClient, store: store, interval: interval, controlPlaneUrl: controlPlaneUrl, installer: installer}
+func NewController(registry *registryClient.Client, kubeClient *kubernetes.Clientset, store status.Store, interval time.Duration, controlPlaneUrl string, installer install.Installer,
+	publisher events.ClusterStatusPublisher) *Controller {
+	return &Controller{registry: registry, kubeClient: kubeClient, store: store, interval: interval, controlPlaneUrl: controlPlaneUrl, installer: installer,
+		publisher: publisher}
 }
 
 func (c *Controller) Run(ctx context.Context) {
