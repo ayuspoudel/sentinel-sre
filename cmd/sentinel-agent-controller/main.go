@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/controller"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/events"
+	clusterRegistered "github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/events/clusterRegisteredEvent"
+	clusterStatusEvent "github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/events/clusterStatusEvent"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/heartbeat"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/kube"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
-
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/store/clusterRegistry"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/store/clusterStatus"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,41 +24,57 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	registryURL := mustEnv("REGISTRY_URL", false)
 	controlPlaneURL := mustEnv("CONTROL_PLANE_URL", false)
 	postgresURL := mustEnv("AGENT_DB_URL", false)
+
 	redisURL := mustEnv("REDIS_URL", false)
 	redisPassword := mustEnv("REDIS_PASSWORD", true)
 	redisStream := mustEnv("REDIS_STREAM", false)
-	redisDB := 0
+	redisGroup := mustEnv("REDIS_GROUP", false)
+	redisConsumer := mustEnv("REDIS_CONSUMER", false)
 
+	redisDB := 0
 	if v := mustEnv("REDIS_DB", false); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			redisDB = parsed
 		}
 	}
-	redisClient := events.NewRedisClient(events.RedisConfig{Addr: redisURL, Password: redisPassword, DB: redisDB})
-	if err := events.PingRedis(ctx, redisClient); err != nil {
+
+	redisClient := clusterStatusEvent.NewRedisClient(clusterStatusEvent.RedisConfig{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       redisDB,
+	})
+
+	if err := clusterStatusEvent.PingRedis(ctx, redisClient); err != nil {
 		log.Fatalf("failed to connect to redis: %v", err)
 	}
-	publisher := events.NewRedisPublisher(redisClient, redisStream)
 
-	reconcileInterval := envDuration("RECONCILE_INTERVAL", 10*time.Second)
+	statusPublisher := clusterStatusEvent.NewRedisPublisher(redisClient, redisStream)
 
-	registry := registryClient.New(registryURL)
-	kubeClient, err := kube.NewKubeClient()
-	if err != nil {
-		log.Fatalf("failed to init kube client: %v", err)
-	}
 	db, err := pgxpool.New(ctx, postgresURL)
 	if err != nil {
 		log.Fatalf("failed to connect postgres: %v", err)
 	}
-	if err := status.RunMigrations(ctx, db); err != nil {
-		log.Fatalf("db migrations failed: %v", err)
+	defer db.Close()
+
+	if err := clusterStatus.RunMigrations(ctx, db); err != nil {
+		log.Fatalf("cluster status migrations failed: %v", err)
 	}
 
-	store := status.NewStatusStore(db)
+	if err := clusterRegistry.RunMigrations(ctx, db); err != nil {
+		log.Fatalf("cluster registry migrations failed: %v", err)
+	}
+
+	clusterStatusStore := clusterStatus.NewStatusStore(db)
+	clusterRegistryStore := clusterRegistry.NewPostgresStore(db)
+
+	kubeClient, err := kube.NewKubeClient()
+	if err != nil {
+		log.Fatalf("failed to init kube client: %v", err)
+	}
+
+	reconcileInterval := envDuration("RECONCILE_INTERVAL", 10*time.Second)
 
 	installer := install.NewHelmInstaller(
 		"sentinel-agent",
@@ -66,7 +82,23 @@ func main() {
 		"sentinel-sre",
 	)
 
-	controller := controller.NewController(registry, kubeClient, store, reconcileInterval, controlPlaneURL, installer, publisher)
+	controller := controller.NewController(
+		kubeClient,
+		clusterStatusStore,
+		clusterRegistryStore,
+		reconcileInterval,
+		controlPlaneURL,
+		installer,
+		statusPublisher,
+	)
+
+	clusterConsumer := clusterRegistered.NewConsumer(
+		redisClient,
+		redisStream,
+		redisGroup,
+		redisConsumer,
+		clusterRegistryStore,
+	)
 
 	heartbeatAddr := os.Getenv("HEARTBEAT_BIND_ADDR")
 	if heartbeatAddr == "" {
@@ -75,7 +107,7 @@ func main() {
 
 	heartbeatServer := heartbeat.NewServer(
 		heartbeatAddr,
-		store,
+		clusterStatusStore,
 	)
 
 	go func() {
@@ -84,6 +116,7 @@ func main() {
 		}
 	}()
 
+	go clusterConsumer.Run(ctx)
 	go controller.Run(ctx)
 
 	stop := make(chan os.Signal, 1)
