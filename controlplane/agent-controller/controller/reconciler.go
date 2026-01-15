@@ -9,20 +9,20 @@ import (
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/install"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/kube"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/models/clusterRegistryModel"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/models/clusterStatusModel"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/presence"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/values"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/registryClient"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
-func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cluster) {
+func (c *Controller) reconcileCluster(ctx context.Context, cl *clusterRegistryModel.ManagedCluster) {
 	log := logging.From(ctx)
 	start := time.Now()
 
-	st := &status.ClusterStatus{
-		ClusterName:     cl.Name,
+	st := &clusterStatusModel.ClusterStatus{
+		ClusterName:     cl.ClusterName,
 		LastReconcileAt: &start,
 	}
 
@@ -37,12 +37,12 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		duration := int(time.Since(start).Milliseconds())
 		st.LastReconcileDurationMs = &duration
 
-		existing, err := c.store.Get(ctx, cl.Name)
+		existing, err := c.store.Get(ctx, cl.ClusterName)
 		if err != nil {
 			log.Warn("failed to load existing cluster status, proceeding with new", "error", err)
 		}
 
-		merged := status.Merge(existing, st)
+		merged := c.clusterStatus.Merge(existing, st)
 
 		if err := c.store.Upsert(ctx, merged); err != nil {
 			log.Error("failed to upsert merged cluster status", "error", err)
@@ -133,7 +133,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		return
 	}
 
-	agentID := cl.Name
+	agentID := cl.ClusterName
 	agentVersion := install.AgentImageTag
 
 	if !installed {
@@ -152,7 +152,7 @@ func (c *Controller) reconcileCluster(ctx context.Context, cl *registryClient.Cl
 		agentValues := values.BuildAgentValues(
 			c.controlPlaneUrl,
 			c.controlPlaneUrl,
-			cl.Name,
+			cl.ClusterName,
 			agentID,
 			agentVersion,
 			install.AgentImageRepo,
@@ -245,7 +245,7 @@ This function evaluates if there are any meaningful change in the cluster status
 If yes, then only it will allow any DB insert or Event Publication. It is useful
 to avoid noise, unnecessary db writes and event publish.
 */
-func hasMeaningfulChange(old, new *status.ClusterStatus) bool {
+func hasMeaningfulChange(old, new *clusterStatusModel.ClusterStatus) bool {
 	if old == nil {
 		return true
 	}
