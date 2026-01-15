@@ -6,14 +6,15 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/models/clusterStatusModel"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/store/clusterStatus"
 )
 
 type Handler struct {
-	store *status.StatusStore
+	store *clusterStatus.StatusStore
 }
 
-func NewHandler(store *status.StatusStore) *Handler {
+func NewHandler(store *clusterStatus.StatusStore) *Handler {
 	return &Handler{store: store}
 }
 
@@ -46,7 +47,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	healthy := true
 
-	st := &status.ClusterStatus{
+	st := &clusterStatusModel.ClusterStatus{
 		ClusterName:        req.ClusterName,
 		AgentInstalled:     ptr(true),
 		AgentHealthy:       &healthy,
