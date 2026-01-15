@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/logging"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/status"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/agent-controller/store/clusterStatus"
 )
 
 type Server struct {
 	addr  string
-	store *status.StatusStore
+	store *clusterStatus.StatusStore
 }
 
-func NewServer(addr string, store *status.StatusStore) *Server {
+func NewServer(addr string, store *clusterStatus.StatusStore) *Server {
 	return &Server{
 		addr:  addr,
 		store: store,
