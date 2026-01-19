@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/go-openapi/runtime/middleware"
 )
 
 type Server struct {
@@ -18,6 +20,31 @@ func NewServer(addr string, handler *Handler) *Server {
 
 func (s *Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
+	docsDir := "cmd/sentinel-cluster-registry/docs"
+
+	opts := middleware.RedocOpts{
+		SpecURL:  "/openapi.yaml",
+		Path:     "/docs",
+		RedocURL: "https://rebilly.github.io/ReDoc/releases/latest/redoc.min.js",
+	}
+	swaggerOpts := middleware.SwaggerUIOpts{
+		SpecURL: "/openapi.yaml",
+		Path:    "/swagger",
+	}
+
+	swaggerHandler := middleware.SwaggerUI(swaggerOpts, nil)
+	mux.Handle("/swagger", swaggerHandler)
+	mux.Handle("/swagger/", swaggerHandler)
+
+	redocHandler := middleware.Redoc(opts, nil)
+	mux.Handle("/docs", redocHandler)
+	mux.Handle("/docs/", redocHandler)
+
+	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		http.ServeFile(w, r, docsDir+"/openapi1.yaml")
+	})
+
 	mux.HandleFunc("/health", s.handler.Health)
 	mux.HandleFunc("/v1/clusters/register", s.handler.Register)
 	mux.HandleFunc("/v1/clusters/register-with-credentials", s.handler.RegisterWithCredentials)
