@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/clusterRegistered"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/kube"
@@ -85,7 +86,8 @@ func (h *Handler) GetByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := strings.TrimPrefix(r.URL.Path, "/clusters/")
+	name := strings.TrimPrefix(r.URL.Path, "/v1/clusters/")
+
 	if name == "" {
 		http.Error(w, "cluster name required", http.StatusBadRequest)
 		return
@@ -100,7 +102,7 @@ func (h *Handler) GetByName(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cluster not found", http.StatusNotFound)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(cluster)
 }
 
@@ -142,23 +144,23 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	@ayuspoudel
-	RegisgterWithCredentials handler allows users to register their cluster to sentinel
-	by providing path to a kubeconfig file in a API call.
-	It does two things it validates the kubeconfig:
-		- If multiple contexts are present in the cluster
-			- See if contextName was provided during API call
-				- If provided we check if that context exists in kubeconfig
-				- If not provided we check
-					- If clusterName from API call matches the contextName existing in kubeconfig
-					- If matches we use that context
-					- If not matches we throw error to user to provide contextName
-	Validation solves the edge case when users apply kubeconfigs with multiple cluster contexts
-	After validation it takes the kubeconfig and applies it as a secret into sentinel namespace
-	with secret name sentinel-cluster-{clusterName} (clusterName is saturated into k8s friendly
-	by our function in ./naming.go)
-*/
+@ayuspoudel
+RegisgterWithCredentials handler allows users to register their cluster to sentinel
+by providing path to a kubeconfig file in a API call.
+It does two things it validates the kubeconfig:
+  - If multiple contexts are present in the cluster
+  - See if contextName was provided during API call
+  - If provided we check if that context exists in kubeconfig
+  - If not provided we check
+  - If clusterName from API call matches the contextName existing in kubeconfig
+  - If matches we use that context
+  - If not matches we throw error to user to provide contextName
 
+Validation solves the edge case when users apply kubeconfigs with multiple cluster contexts
+After validation it takes the kubeconfig and applies it as a secret into sentinel namespace
+with secret name sentinel-cluster-{clusterName} (clusterName is saturated into k8s friendly
+by our function in ./naming.go)
+*/
 func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -226,7 +228,13 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cluster := &model.Cluster{Name: name, CredentialRef: secretName, Labels: map[string]string{"context": contextName}}
+
+	cluster := &model.Cluster{
+		Name:          name,
+		CredentialRef: secretName,
+		Labels:        map[string]string{"context": contextName},
+	}
+
 	if err := h.svc.Register(r.Context(), cluster); err != nil {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
@@ -235,7 +243,18 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		_ = h.publisher.PublishClusterRegistered(r.Context(), cluster)
 	}
 
+	resp := ClusterResponse{
+		ClusterName:   cluster.Name,
+		CredentialRef: cluster.CredentialRef,
+		Labels:        cluster.Labels,
+		RegisteredAt:  time.Now().UTC().Format(time.RFC3339),
+		Source:        "api",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+
 }
 
 /*
