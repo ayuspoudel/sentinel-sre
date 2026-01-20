@@ -2,27 +2,27 @@ openapi: 3.0.3
 
 info:
   title: Sentinel Cluster Registry API
-  description: |
-    API for registering, listing, querying, and deleting Kubernetes clusters
-    managed by the Sentinel control plane.
+  description: >
+    Sentinel Control Plane API for registering and managing Kubernetes cluster
+    intents. This API stores cluster metadata and credential references and
+    exposes read-only state for reconciliation tools such as Terraform.
   version: 1.0.0
 
 servers:
-  - url: http://localhost:9000
+  - url: http://localhost:8080
     description: Local development
 
 tags:
   - name: Health
     description: Service health endpoints
   - name: Clusters
-    description: Cluster registry operations
+    description: Cluster registration and lookup
 
 paths:
   /health:
     get:
       tags: [Health]
       summary: Health check
-      description: Returns service liveness status
       responses:
         "200":
           description: Service is healthy
@@ -31,62 +31,74 @@ paths:
               schema:
                 type: string
                 example: ok
+        "503":
+          description: Service is unhealthy
 
   /v1/clusters/register:
     post:
       tags: [Clusters]
-      summary: Register a cluster
-      description: |
-        Registers a cluster using an existing credential reference.
-        The kubeconfig must already exist in the control plane.
+      summary: Register a cluster using an existing credential reference
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ClusterRegisterRequest"
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
         "201":
           description: Cluster registered successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Cluster"
         "400":
           description: Invalid request
-        "409":
-          description: Cluster already exists
+        "500":
+          description: Internal server error
 
   /v1/clusters/register-with-credentials:
     post:
       tags: [Clusters]
-      summary: Register a cluster with credentials
-      description: |
-        Registers a cluster and stores kubeconfig credentials
-        provided in the request.
+      summary: Register a cluster by uploading kubeconfig credentials
+      description: >
+        Validates the kubeconfig, selects a context, stores the kubeconfig as a
+        Kubernetes Secret, and registers the cluster intent.
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/ClusterRegisterWithCredentialsRequest"
+              type: object
+              required:
+                - name
+                - kubeconfig
+              properties:
+                name:
+                  type: string
+                  description: Unique cluster name
+                  example: sreCluster
+                context:
+                  type: string
+                  description: >
+                    Optional kubeconfig context name. If omitted, Sentinel will
+                    attempt to auto-select a context.
+                  example: sreCluster
+                kubeconfig:
+                  type: string
+                  format: binary
+                  description: Kubeconfig file
       responses:
         "201":
           description: Cluster registered successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Cluster"
+                $ref: "#/components/schemas/ClusterResponse"
         "400":
-          description: Invalid request
-        "409":
-          description: Cluster already exists
+          description: Invalid kubeconfig or request
+        "500":
+          description: Internal server error
 
   /v1/clusters/list:
     get:
       tags: [Clusters]
-      summary: List registered clusters
-      description: Returns all registered clusters ordered by registration time
+      summary: List all registered clusters
       responses:
         "200":
           description: List of clusters
@@ -97,16 +109,17 @@ paths:
                 items:
                   $ref: "#/components/schemas/Cluster"
 
-  /v1/clusters/{clusterName}:
+  /v1/clusters/{name}:
     get:
       tags: [Clusters]
       summary: Get cluster by name
       parameters:
-        - name: clusterName
+        - name: name
           in: path
           required: true
           schema:
             type: string
+          description: Cluster name
       responses:
         "200":
           description: Cluster found
@@ -121,26 +134,52 @@ paths:
       tags: [Clusters]
       summary: Delete cluster by name
       parameters:
-        - name: clusterName
+        - name: name
           in: path
           required: true
           schema:
             type: string
       responses:
         "204":
-          description: Cluster deleted successfully
+          description: Cluster deleted
         "404":
           description: Cluster not found
+        "500":
+          description: Internal server error
 
 components:
   schemas:
-    ClusterRegisterRequest:
+    RegisterRequest:
       type: object
       required:
-        - cluster_name
+        - name
         - credential_ref
       properties:
-        cluster_name:
+        name:
+          type: string
+          description: Unique cluster name
+          example: sreCluster
+        credential_ref:
+          type: string
+          description: Reference to stored credentials
+          example: sentinel-cluster-srecluster
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional cluster labels
+          example:
+            env: dev
+
+    Cluster:
+      type: object
+      required:
+        - name
+        - credential_ref
+        - labels
+        - created_at
+      properties:
+        name:
           type: string
           example: sreCluster
         credential_ref:
@@ -152,35 +191,17 @@ components:
             type: string
           example:
             context: sreCluster
-        source:
+        created_at:
           type: string
-          example: api
+          format: date-time
+          example: "2026-01-19T18:10:42Z"
 
-    ClusterRegisterWithCredentialsRequest:
+    ClusterResponse:
       type: object
       required:
         - cluster_name
-        - kubeconfig
-      properties:
-        cluster_name:
-          type: string
-          example: sreCluster
-        kubeconfig:
-          type: string
-          format: byte
-          description: Base64-encoded kubeconfig
-        labels:
-          type: object
-          additionalProperties:
-            type: string
-          example:
-            context: sreCluster
-        source:
-          type: string
-          example: api
-
-    Cluster:
-      type: object
+        - registered_at
+        - source
       properties:
         cluster_name:
           type: string
@@ -197,7 +218,7 @@ components:
         registered_at:
           type: string
           format: date-time
-          example: "2026-01-14T19:19:01Z"
+          example: "2026-01-20T16:10:35Z"
         source:
           type: string
           example: api
