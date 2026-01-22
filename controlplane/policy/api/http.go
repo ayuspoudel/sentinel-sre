@@ -44,7 +44,6 @@ func NewServer(addr string, h *Handler) *http.Server {
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
-
 	mux.HandleFunc("/v1/policies/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1/policies/")
 		parts := strings.Split(path, "/")
