@@ -6,7 +6,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewKubeClient() (*kubernetes.Clientset, error) {
+type KubeClient struct {
+	client *kubernetes.Clientset
+}
+
+func NewKube() (*KubeClient, error) {
+	client, err := newKubeClient()
+	if err != nil {
+		return nil, err
+	}
+	return &KubeClient{client: client}, nil
+}
+
+func newKubeClient() (*kubernetes.Clientset, error) {
 	// Try to load in cluster config when running as a pod
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
