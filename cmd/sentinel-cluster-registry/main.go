@@ -10,7 +10,8 @@ import (
 
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/api"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/db"
-	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/clusterRegistered"
+	redisPublisher "github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/redis"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/kube"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/redis"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/store"
@@ -45,11 +46,16 @@ func main() {
 	svc := service.NewService(store)
 	redis := redis.New()
 	redisStream := env.MustEnv("REDIS_STREAM", false)
-	var publisher clusterRegistered.ClusterRegisteredPublisher
+	var publisher redisPublisher.RedisPublisher
 	if redisStream != "" {
-		publisher = clusterRegistered.NewRedisPublisher(redis, redisStream)
+		publisher = *redisPublisher.NewRedisPublisher(redis, redisStream)
 	}
-	handler := api.NewHandler(svc, publisher)
+	kubeClient, err := kube.NewKube()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	handler := api.NewHandler(svc, &publisher, kubeClient)
 	server := api.NewServer(":8080", handler)
 
 	err = server.Run(ctx)
