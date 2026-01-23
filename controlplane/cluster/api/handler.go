@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events/clusterRegistered"
+	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/events"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/kube"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/model"
 	"github.com/ayuspoudel/sentinel-sre/controlplane/cluster/service"
@@ -23,12 +24,13 @@ It has functions like Create(cluster), Get(clusterName), List(), Delete(clusterN
 Cluster is also a struct defined in model.go
 */
 type Handler struct {
-	svc       *service.Service
-	publisher clusterRegistered.ClusterRegisteredPublisher
+	svc        *service.Service
+	publisher  events.ClusterIntentPublisher
+	kubeclient *kube.KubeClient
 }
 
-func NewHandler(svc *service.Service, publisher clusterRegistered.ClusterRegisteredPublisher) *Handler {
-	return &Handler{svc: svc, publisher: publisher}
+func NewHandler(svc *service.Service, publisher events.ClusterIntentPublisher, kubeclient *kube.KubeClient) *Handler {
+	return &Handler{svc: svc, publisher: publisher, kubeclient: kubeclient}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +61,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to register cluster", http.StatusInternalServerError)
 		return
 	}
+
 	if h.publisher != nil {
 		err = h.publisher.PublishClusterRegistered(r.Context(), c)
+		if err != nil {
+			log.Printf("[REDIS_INFO] failed to publish cluster registered event")
+		}
 	}
 	w.WriteHeader(http.StatusCreated)
 }
@@ -112,16 +118,42 @@ func (h *Handler) DeleteByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := strings.TrimPrefix(r.URL.Path, "/clusters/")
+	name := strings.TrimPrefix(r.URL.Path, "/v1/clusters/")
 	if name == "" {
 		http.Error(w, "cluster name required", http.StatusBadRequest)
 		return
 	}
 
-	err := h.svc.Delete(r.Context(), name)
+	ctx := r.Context()
+
+	cluster, err := h.svc.Get(ctx, name)
 	if err != nil {
+		http.Error(w, "failed to get cluster", http.StatusInternalServerError)
+		return
+	}
+	if cluster == nil {
+		http.Error(w, "cluster not found", http.StatusNotFound)
+		return
+	}
+
+	if err := h.svc.Delete(ctx, name); err != nil {
 		http.Error(w, "failed to delete cluster", http.StatusInternalServerError)
 		return
+	}
+
+	if h.kubeclient != nil {
+		const namespace = "sentinel"
+		secretName := cluster.CredentialRef
+
+		if err := h.kubeclient.DeleteKubeconfigSecret(ctx, namespace, secretName); err != nil {
+			log.Printf("[WARN] failed to delete kubeconfig secret %s/%s: %v",
+				namespace, secretName, err)
+		}
+	}
+	if h.publisher != nil {
+		if err := h.publisher.PublishClusterDeleted(ctx, name); err != nil {
+			log.Printf("[REDIS_INFO] failed to publish cluster deleted event")
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -218,12 +250,7 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 	safeName := model.ToDNS1123Name(name)
 	secretName := fmt.Sprintf("sentinel-cluster-%s", safeName)
 	namespace := "sentinel"
-	kubeclient, err := kube.NewKubeClient()
-	if err != nil {
-		http.Error(w, "failed to init kube client", http.StatusInternalServerError)
-		return
-	}
-	err = kube.EnsureKubeconfigSecret(r.Context(), kubeclient, namespace, secretName, kubeconfig)
+	err = h.kubeclient.EnsureKubeconfigSecret(r.Context(), namespace, secretName, kubeconfig)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -240,7 +267,10 @@ func (h *Handler) RegisterWithCredentials(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if h.publisher != nil {
-		_ = h.publisher.PublishClusterRegistered(r.Context(), cluster)
+		err = h.publisher.PublishClusterRegistered(r.Context(), cluster)
+		if err != nil {
+			log.Printf("[REDIS_INFO] failed to publish cluster registered event")
+		}
 	}
 
 	resp := ClusterResponse{
