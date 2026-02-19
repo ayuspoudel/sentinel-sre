@@ -7,6 +7,10 @@
 [![Helm Repo E2E Test for Sentinel Agent](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml)
 [![Helm Chart Version Bump](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml)
 
+![Stats](https://github-readme-stats.vercel.app/api/pin/?username=ayuspoudel&repo=sentinel-sre)
+![Go Report Card](https://goreportcard.com/badge/github.com/ayuspoudel/sentinel-sre)
+![Last Commit](https://img.shields.io/github/last-commit/ayuspoudel/sentinel-sre)
+![Commits](https://img.shields.io/github/commit-activity/m/ayuspoudel/sentinel-sre)
 
 
 
