@@ -7,7 +7,7 @@
 [![Helm Repo E2E Test for Sentinel Agent](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-repo-e2e-sentinel-agent.yaml)
 [![Helm Chart Version Bump](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml/badge.svg)](https://github.com/ayuspoudel/sentinel-sre/actions/workflows/helm-version-update.yaml)
 
-![My GitHub Game](game.gif)
+
 
 
 ###### Add dead letter handling in redis, with retry counting and small branch in consumer loop
