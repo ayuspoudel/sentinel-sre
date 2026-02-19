@@ -12,7 +12,7 @@
 ![Last Commit](https://img.shields.io/github/last-commit/ayuspoudel/sentinel-sre)
 ![Commits](https://img.shields.io/github/commit-activity/m/ayuspoudel/sentinel-sre)
 ![Docker Pulls](https://img.shields.io/docker/pulls/ayuspoudel/sentinel-agent)
-![Docker Image Size](https://img.shields.io/docker/image-size/ayuspoudel/sentinel-agent/latest)
+![Docker Image Size](https://img.shields.io/docker/image-size/ayuspoudel/sentinel-agent/1.3.1)
 ![Docker Version](https://img.shields.io/docker/v/ayuspoudel/sentinel-agent?label=latest)
 
 
